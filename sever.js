@@ -5,6 +5,9 @@ const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
+app.get('/', (req, res) => {
+  res.send('Madam Healthy Cafe Bot is running!');
+});
 
 const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;

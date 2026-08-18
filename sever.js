@@ -1,0 +1,168 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const { GoogleGenAI } = require('@google/genai');
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+
+// ตั้งค่า Gemini AI
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// -------------------------------------------------------------
+// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (Healthy Cafe)
+// -------------------------------------------------------------
+const SYSTEM_INSTRUCTION = `
+คุณคือแอดมิน AI ตอบแชทลูกค้าของร้าน "Madam Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
+ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
+
+[เกี่ยวกับร้าน]
+- เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มและขนมเพื่อสุขภาพ สำหรับคนดูแลรูปร่างโดยเฉพาะ
+- เวลาทำการ: 08:00 - 20:00 น. (เปิดทุกวัน)
+
+[เมนูเครื่องดื่มสุขภาพ]
+1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล เหมาะสำหรับผู้ที่ต้องการคุมน้ำหนัก รักษารูปร่าง หรือเติมโปรตีนหลังออกกำลังกาย
+2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
+
+[ขนม/ของหวานสุขภาพ]
+- วาฟเฟิลโปรตีนไร้แป้ง: กรอบนอกนุ่มใน โปรตีนเน้นๆ ไร้แป้งสาลี ไร้น้ำตาล 
+  (หมายเหตุ: เมนูวาฟเฟิลโปรตีนไร้แป้งมีให้บริการเฉพาะบางสาขาเท่านั้น แนะนำให้ลูกค้าระบุสาขาที่สะดวกสั่งเพื่อให้แอดมินเช็คสต็อกให้ก่อนนะคะ)
+
+[โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
+1. โปรแกรม 3 วัน: เซ็ตเริ่มต้น ปรับระบบเผาผลาญ ลดอาการบวมน้ำ
+2. โปรแกรม 5 วัน: เซ็ตต่อเนื่อง กระชับสัดส่วน เริ่มเห็นความเปลี่ยนแปลง
+3. โปรแกรม 7 วัน: เซ็ตยอดฮิต สลายไขมัน ปรับพฤติกรรมการกินอย่างเห็นผล
+4. โปรแกรม 10 วัน: เซ็ตเปลี่ยนรูปร่างขั้นสุด ลดน้ำหนักแบบยั่งยืน พร้อมดูแลต่อเนื่อง
+
+[ช่องทางชำระเงิน]
+- ธนาคารกสิกรไทย เลขบัญชี 123-4-56789-0 ชื่อบัญชี: มาดาม เฮลท์ตี้
+- โอนเสร็จแล้ว สามารถส่งรูปภาพสลิปชำระเงินเข้ามาในแชทนี้ได้เลยค่ะ
+`;
+
+// ฟังก์ชันส่งข้อความไปหา Gemini AI
+async function getAIReply(userText) {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: userText,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error('Gemini API Error:', error);
+    return 'ขออภัยด้วยนะคะ ระบบประมวลผลติดขัดสักครู่ แอดมินกำลังรีบเข้ามาตอบนะคะ 😊';
+  }
+}
+
+// Verification Webhook
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('WEBHOOK_VERIFIED');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  }
+});
+
+// Handling incoming messages (แก้ปัญหา Facebook Timeout และการตอบซ้ำ)
+app.post('/webhook', (req, res) => {
+  const body = req.body;
+
+  if (body.object === 'page') {
+    // ⚡ ตอบ Facebook ทันทีใน 0.1 วินาที ป้องกัน Facebook คิดว่าระบบล่มแล้วส่งข้อความมาซ้ำ
+    res.status(200).send('EVENT_RECEIVED');
+
+    // ประมวลผลและตอบแชทลูกค้าแบบ Async
+    body.entry.forEach(async (entry) => {
+      const webhook_event = entry.messaging[0];
+      const sender_psid = webhook_event.sender.id;
+
+      if (webhook_event.message) {
+        await handleMessage(sender_psid, webhook_event.message);
+      } else if (webhook_event.postback) {
+        await handlePostback(sender_psid, webhook_event.postback);
+      }
+    });
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+async function handleMessage(sender_psid, received_message) {
+  // 1. ถ้ารับรูปภาพ (สลิปโอนเงิน)
+  if (received_message.attachments) {
+    const responseText = 'ขอบคุณสำหรับสลิปชำระเงินค่ะ! 🙏 กรุณาแจ้งชื่อ-ที่อยู่ เบอร์โทรศัพท์ และสาขาที่ต้องการรับสินค้าได้เลยนะคะ';
+    await callSendAPI(sender_psid, { text: responseText });
+    return; // จบการทำงานทันที ไม่ส่งเมนูต้อนรับซ้ำ
+  }
+
+  const text = received_message.text ? received_message.text.trim() : '';
+
+  // 2. ถ้าลูกค้า พิมพ์คำว่า "เมนู" หรือ "สั่ง"
+  if (text.includes('เมนู') || text.includes('สั่ง')) {
+    await sendMenuCarousel(sender_psid);
+    return;
+  }
+
+  // 3. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
+  const aiReply = await getAIReply(text);
+  await callSendAPI(sender_psid, { text: aiReply });
+}
+
+async function handlePostback(sender_psid, received_postback) {
+  const payload = received_postback.payload;
+
+  if (payload === 'ORDER_SET_A' || payload === 'ORDER_SET_B') {
+    const responseText = 'ขอบคุณที่สนใจสั่งซื้อค่ะ! 💚\nสามารถโอนเงินได้ที่:\nธ.กสิกรไทย: 123-4-56789-0\nชื่อบัญชี: มาดาม เฮลท์ตี้\n\nโอนแล้วส่งสลิปมาในแชทนี้ได้เลยนะคะ';
+    await callSendAPI(sender_psid, { text: responseText });
+  }
+}
+
+async function sendMenuCarousel(sender_psid) {
+  const messageData = {
+    attachment: {
+      type: 'template',
+      payload: {
+        template_type: 'generic',
+        elements: [
+          {
+            title: 'เครื่องดื่ม & วาฟเฟิลสุขภาพ',
+            image_url: 'https://via.placeholder.com/300x200',
+            subtitle: 'สมูทตี้โปรตีน, ชาสลายไขมัน และวาฟเฟิลไร้แป้ง',
+            buttons: [{ type: 'postback', title: 'สนใจสั่งซื้อ', payload: 'ORDER_SET_A' }]
+          },
+          {
+            title: 'โปรแกรมลดน้ำหนัก 3/5/7/10 วัน',
+            image_url: 'https://via.placeholder.com/300x200',
+            subtitle: 'โปรแกรมคุมรูปร่าง ปรับระบบเผาผลาญ',
+            buttons: [{ type: 'postback', title: 'สนใจโปรแกรม', payload: 'ORDER_SET_B' }]
+          }
+        ]
+      }
+    }
+  };
+  await callSendAPI(sender_psid, messageData);
+}
+
+async function callSendAPI(sender_psid, response) {
+  const request_body = { recipient: { id: sender_psid }, message: response };
+  try {
+    await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, request_body);
+  } catch (error) {
+    console.error('Unable to send message:', error.response ? error.response.data : error);
+  }
+}
+
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

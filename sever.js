@@ -59,10 +59,10 @@ const SYSTEM_INSTRUCTION = `
 async function getAIReply(userText) {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // 👈 แก้ตรงนี้ให้เป็นชื่อโมเดลที่มีอยู่จริง
-      contents: userText,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION
+  model: 'gemini-3.6-flash', // 👈 ใส่รุ่นนี้ตามที่ Google Recommends ใน Log
+  contents: userText,
+  config: {
+    systemInstruction: SYSTEM_INSTRUCTION
       }
     });
     return response.text;

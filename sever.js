@@ -59,7 +59,7 @@ const SYSTEM_INSTRUCTION = `
 async function getAIReply(userText) {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash', // 👈 แก้ตรงนี้ให้เป็นชื่อโมเดลที่มีอยู่จริง
       contents: userText,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION
@@ -67,8 +67,8 @@ async function getAIReply(userText) {
     });
     return response.text;
   } catch (error) {
-    console.error('Gemini API Error:', error);
-    return 'ขออภัยด้วยนะคะ ระบบประมวลผลติดขัดสักครู่ แอดมินกำลังรีบเข้ามาตอบนะคะ 😊';
+    console.error("Error in getAIReply:", error);
+    return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินคนจริงจะรีบมาตอบนะคะ";
   }
 }
 

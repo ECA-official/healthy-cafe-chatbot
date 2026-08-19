@@ -137,7 +137,7 @@ async function handlePostback(sender_psid, received_postback) {
   const payload = received_postback.payload;
 
   if (payload === 'ORDER_SET_A' || payload === 'ORDER_SET_B') {
-    const responseText = 'ขอบคุณที่สนใจสั่งซื้อค่ะ! 💚\nสามารถโอนเงินได้ที่:\nธ.กสิกรไทย: 123-4-56789-0\nชื่อบัญชี: มาดาม เฮลท์ตี้\n\nโอนแล้วส่งสลิปมาในแชทนี้ได้เลยนะคะ';
+    const responseText = 'รับออเดอร์เรียบร้อยค่ะ! กรุณารอแอดมินสักครู่เพื่อตรวจสอบรายการและส่งเลขบัญชีให้นะคะ 😊';
     await callSendAPI(sender_psid, { text: responseText });
   }
 }

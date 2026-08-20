@@ -24,47 +24,45 @@ const SYSTEM_INSTRUCTION = `
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
 
 [เกี่ยวกับร้าน]
-- เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มและขนมเพื่อสุขภาพ สำหรับคนดูแลรูปร่างโดยเฉพาะ
+- เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มพื่อสุขภาพ สำหรับคนดูแลรูปร่าง ควบคุมหน้ำหนักโดยเฉพาะ
 - เวลาทำการ: 08:00 - 18:00 น. (เปิดทุกวัน)
 
 [เมนูเครื่องดื่มสุขภาพ]
 1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล เหมาะสำหรับผู้ที่ต้องการคุมน้ำหนัก รักษารูปร่าง หรือเติมโปรตีนหลังออกกำลังกาย
 2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
 
-[ขนม/ของหวานสุขภาพ]
-- วาฟเฟิลโปรตีนไร้แป้ง: กรอบนอกนุ่มใน โปรตีนเน้นๆ ไร้แป้งสาลี ไร้น้ำตาล 
-  (หมายเหตุ: เมนูวาฟเฟิลโปรตีนไร้แป้งมีให้บริการเฉพาะบางสาขาเท่านั้น แนะนำให้ลูกค้าระบุสาขาที่สะดวกสั่งเพื่อให้แอดมินเช็คสต็อกให้ก่อนนะคะ)
-
 [โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
-1. โปรแกรม 3 วัน ว้าวว: เซ็ตเริ่มต้น ปรับระบบเผาผลาญ ลดอาการบวมน้ำ
-2. โปรแกรม 7 วัน ฟิต: เซ็ตยอดฮิต สลายไขมัน ปรับพฤติกรรมการกินอย่างเห็นผล
-3. โปรแกรม 10 วัน เฟิร์ม: เซ็ตเปลี่ยนรูปร่างขั้นสุด ลดน้ำหนักแบบยั่งยืน พร้อมดูแลต่อเนื่อง
+1) โปรแกรม 3 วัน WOW
+ตัวบวม น้ำหนักขึ้นง่าย? เริ่มเปลี่ยนได้ใน 3 วัน!
+เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
+2) โปรแกรม 7 วัน FIT SET
+7 วัน จุดเริ่มต้นของหุ่นที่คุณอยากมี
+โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
+3) โปรแกรม 10 วัน FIRM SET
+เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
+โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+
+โปรโมชั่นพิเศษเมื่อตัดสินใจเข้าโปรแกรมกับทางเราสามารถใช้สิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ได้ฟรี
 
 
 คุณคือผู้ช่วยตอบแชตประจำร้าน ตอบลูกค้าด้วยความสุภาพ เป็นกันเอง และปฏิบัติตามเงื่อนไขอย่างเคร่งครัดดังนี้:
 
-1. เรื่องการจัดส่ง / เดลิเวอรี:
-- หากลูกค้าสอบถามเรื่องการจัดส่ง ให้แจ้งว่าทางร้านมีบริการจัดส่ง 2 รูปแบบหลัก:
-  1) ทางร้าน / (ขึ้นอยู่กับระยะทางและช่วงเวลา)
-  2) ให้เรียกรถเอกชน (เช่น Grab หรือ วินมอเตอร์ไซค์) มารับสินค้าที่หน้าร้าน ให้ขอพิกัด/สถานที่จัดส่งเบื้องต้นไว้ แล้วแจ้งว่าแอดมินจะเข้าประเมินการจัดส่งให้อีกครั้งค่ะ
-
-  2.หากลูกค้าแจ้งว่าสะดวกรับหน้าร้าน ให้ลูกค้าแจ้งเวลาที่สะดวกเข้ามารับ
 `;
 
 // ฟังก์ชันส่งข้อความไปหา Gemini AI
 async function getAIReply(userText) {
   try {
     const response = await ai.models.generateContent({
-  model: 'gemini-3.6-flash', // 👈 ใส่รุ่นนี้ตามที่ Google Recommends ใน Log
-  contents: userText,
-  config: {
-    systemInstruction: SYSTEM_INSTRUCTION
+      model: 'gemini-3.6-flash', // 👈 ใส่รุ่นนี้ตามที่ Google Recommends ใน Log
+      contents: userText,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION
       }
     });
     return response.text;
   } catch (error) {
     console.error("Error in getAIReply:", error);
-    return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินจะรีบมาตอบนะคะ";
+    return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 }
 
@@ -98,7 +96,7 @@ app.post('/webhook', (req, res) => {
       const sender_psid = webhook_event.sender.id;
 
       if (webhook_event.message) {
-        await handleMessage(sender_psid, webhook_event.message);
+        await handleMessage(sender_psid, webhook_event.message, entry.id);
       } else if (webhook_event.postback) {
         await handlePostback(sender_psid, webhook_event.postback);
       }
@@ -108,20 +106,17 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-async function handleMessage(sender_psid, received_message) {
-  // 1. ถ้ารับรูปภาพ (สลิปโอนเงิน)
-  if (received_message.attachments) {
-    const responseText = 'ขอบคุณสำหรับสลิปชำระเงินค่ะ! 🙏 กรุณาแจ้งชื่อ-ที่อยู่ เบอร์โทรศัพท์ และสาขาที่ต้องการรับสินค้าได้เลยนะคะ';
-    await callSendAPI(sender_psid, { text: responseText });
-    return; // จบการทำงานทันที ไม่ส่งเมนูต้อนรับซ้ำ
-  }
-
+// ฟังก์ชันจัดการข้อความขาเข้า
+async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
   // 2. ถ้าลูกค้า พิมพ์คำว่า "เมนู" หรือ "สั่ง"
   if (text.includes('เมนู') || text.includes('สั่ง')) {
-    await sendMenuCarousel(sender_psid);
-    return;
+    const carouselData = await getPagePostsAsCarousel(page_id, PAGE_ACCESS_TOKEN);
+    if (carouselData) {
+      await callSendAPI(sender_psid, carouselData);
+      return;
+    }
   }
 
   // 3. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
@@ -129,13 +124,9 @@ async function handleMessage(sender_psid, received_message) {
   await callSendAPI(sender_psid, { text: aiReply });
 }
 
+// ฟังก์ชันจัดการ Postback
 async function handlePostback(sender_psid, received_postback) {
-  const payload = received_postback.payload;
-
-  if (payload === 'ORDER_SET_A' || payload === 'ORDER_SET_B') {
-    const responseText = 'รับออเดอร์เรียบร้อยค่ะ! กรุณารอแอดมินสักครู่เพื่อตรวจสอบรายการและส่งเลขบัญชีให้นะคะ 😊';
-    await callSendAPI(sender_psid, { text: responseText });
-  }
+  console.log('Postback received:', received_postback);
 }
 
 // ฟังก์ชันดึงโพสต์ล่าสุดจากหน้าเพจโดยตรง (ไม่ต้องใช้ Database)
@@ -176,8 +167,6 @@ async function getPagePostsAsCarousel(page_id, page_access_token) {
     return null;
   }
 }
-  await callSendAPI(sender_psid, messageData);
-}
 
 async function callSendAPI(sender_psid, response) {
   const request_body = { recipient: { id: sender_psid }, message: response };
@@ -189,4 +178,3 @@ async function callSendAPI(sender_psid, response) {
 }
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-

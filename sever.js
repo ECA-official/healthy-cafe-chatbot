@@ -5,6 +5,7 @@ const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
+
 app.get('/', (req, res) => {
   res.send('Madam Healthy Cafe Bot is running!');
 });
@@ -44,16 +45,17 @@ const SYSTEM_INSTRUCTION = `
 
 โปรโมชั่นพิเศษเมื่อตัดสินใจเข้าโปรแกรมกับทางเราสามารถใช้สิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ได้ฟรี
 
-
-คุณคือผู้ช่วยตอบแชตประจำร้าน ตอบลูกค้าด้วยความสุภาพ เป็นกันเอง และปฏิบัติตามเงื่อนไขอย่างเคร่งครัดดังนี้:
-
+[กฎสำคัญเรื่องการทักทาย]
+1. ห้ามกล่าวสวัสดี (เช่น "สวัสดีค่ะ", "สวัสดีนะคะ", "ยินดีต้อนรับค่ะ") ในการตอบคำถามทั่วไป ให้ตอบเข้าเรื่องคำถามของลูกค้าได้เลยทันที!
+2. จะกล่าว "สวัสดี" ได้ต่อเมื่อลูกค้าเป็นฝ่ายพิมพ์ทักทายมาก่อนเท่านั้น (เช่น "สวัสดี", "หวัดดี", "มอนิ่ง", "Hello", "Hi")
+3. ห้ามแจก/สุ่มเลขบัญชีธนาคารเด็ดขาด หากลูกค้าจะโอนเงิน ให้แจ้งให้รอแอดมินคนจริงมาส่งเลขบัญชีให้
 `;
 
 // ฟังก์ชันส่งข้อความไปหา Gemini AI
 async function getAIReply(userText) {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash', // 👈 ใส่รุ่นนี้ตามที่ Google Recommends ใน Log
+      model: 'gemini-3.6-flash',
       contents: userText,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION
@@ -82,15 +84,13 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Handling incoming messages (แก้ปัญหา Facebook Timeout และการตอบซ้ำ)
+// Handling incoming messages
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
   if (body.object === 'page') {
-    // ⚡ ตอบ Facebook ทันทีใน 0.1 วินาที ป้องกัน Facebook คิดว่าระบบล่มแล้วส่งข้อความมาซ้ำ
     res.status(200).send('EVENT_RECEIVED');
 
-    // ประมวลผลและตอบแชทลูกค้าแบบ Async
     body.entry.forEach(async (entry) => {
       const webhook_event = entry.messaging[0];
       const sender_psid = webhook_event.sender.id;
@@ -110,16 +110,20 @@ app.post('/webhook', (req, res) => {
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
-  // 2. ถ้าลูกค้า พิมพ์คำว่า "เมนู" หรือ "สั่ง"
-  if (text.includes('เมนู') || text.includes('สั่ง')) {
+  // 1. ถ้าลูกค้าพิมพ์คำว่า "เมนู", "สั่ง", หรือ "รูป"
+  if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
+    // 1.1 ส่งรูปภาพเมนูทั้ง 2 รูป
+    await sendMenuImage(sender_psid);
+
+    // 1.2 ดึงโพสต์ล่าสุดจากหน้าเพจส่งเป็น Carousel อัตโนมัติ
     const carouselData = await getPagePostsAsCarousel(page_id, PAGE_ACCESS_TOKEN);
     if (carouselData) {
       await callSendAPI(sender_psid, carouselData);
-      return;
     }
+    return;
   }
 
-  // 3. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
+  // 2. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }
@@ -129,19 +133,44 @@ async function handlePostback(sender_psid, received_postback) {
   console.log('Postback received:', received_postback);
 }
 
-// ฟังก์ชันดึงโพสต์ล่าสุดจากหน้าเพจโดยตรง (ไม่ต้องใช้ Database)
+// -------------------------------------------------------------
+// 📌 ฟังก์ชันส่งรูปภาพเมนู 2 รูปให้ลูกค้า
+// -------------------------------------------------------------
+async function sendMenuImage(sender_psid) {
+  // 👈 นำลิงก์รูปภาพเมนูทั้ง 2 รูปมาใส่ในเครื่องหมายคำพูดด้านล่างนี้ได้เลยครับ
+  const menuImages = [
+    "https://i.postimg.cc/zGpf9y27/4.png", // รูปที่ 1
+    "https://i.postimg.cc/JzKh9sYq/5.png"  // รูปที่ 2
+  ];
+
+  for (const imageUrl of menuImages) {
+    // ข้ามการส่งหากยังไม่ได้เปลี่ยนลิงก์รูปภาพตัวอย่าง
+    if (imageUrl.includes("URL_รูปภาพที่")) continue;
+
+    const messageData = {
+      attachment: {
+        type: "image",
+        payload: {
+          url: imageUrl,
+          is_reusable: true
+        }
+      }
+    };
+    await callSendAPI(sender_psid, messageData);
+  }
+}
+
+// ฟังก์ชันดึงโพสต์ล่าสุดจากหน้าเพจทำ Carousel
 async function getPagePostsAsCarousel(page_id, page_access_token) {
   try {
-    // 1. ดึง 5 โพสต์ล่าสุดที่มีรูปภาพจาก Graph API ของเพจนั้น
     const url = `https://graph.facebook.com/v20.0/${page_id}/posts?fields=message,full_picture,permalink_url&limit=5&access_token=${page_access_token}`;
     const response = await fetch(url);
     const result = await response.json();
 
     if (!result.data || result.data.length === 0) return null;
 
-    // 2. แปลงข้อความและรูปภาพจากหน้าเพจ มาเป็นรูปแบบ Carousel อัตโนมัติ
     const elements = result.data
-      .filter(post => post.full_picture) // เอาเฉพาะโพสต์ที่มีรูป
+      .filter(post => post.full_picture)
       .map(post => ({
         title: post.message ? post.message.split('\n')[0].substring(0, 80) : 'สินค้า/เมนูแนะนำ',
         image_url: post.full_picture,
@@ -168,6 +197,7 @@ async function getPagePostsAsCarousel(page_id, page_access_token) {
   }
 }
 
+// ฟังก์ชันส่งข้อความหา Facebook API
 async function callSendAPI(sender_psid, response) {
   const request_body = { recipient: { id: sender_psid }, message: response };
   try {

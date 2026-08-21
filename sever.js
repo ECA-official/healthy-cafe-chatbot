@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
+const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
@@ -13,8 +14,11 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
+// 📌 ตั้งค่า SDK ตามแบบเมื่อคืน
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 // -------------------------------------------------------------
-// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (Healthy Cafe)
+// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe
 // -------------------------------------------------------------
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
@@ -63,65 +67,21 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-let activeModelName = null;
-
-// ฟังก์ชันค้นหาโมเดลที่ใช้งานได้จริงจาก Google
-async function getAvailableModel(apiKey) {
-  if (activeModelName) return activeModelName;
-
-  try {
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const res = await axios.get(listUrl);
-    const models = res.data.models || [];
-    
-    // ค้นหาโมเดลแรกที่รองรับ generateContent
-    const validModel = models.find(m => m.supportedGenerationMethods?.includes("generateContent"));
-    if (validModel) {
-      activeModelName = validModel.name.replace('models/', '');
-      console.log(`🎯 Auto-detected active model: ${activeModelName}`);
-      return activeModelName;
-    }
-  } catch (err) {
-    console.error("❌ Model Discovery Error:", err.response?.data || err.message);
-  }
-  
-  // สำรองไว้กรณี List API ไม่ตอบกลับ
-  return 'gemini-1.5-flash';
-}
-
-// ฟังก์ชันยิงหา Gemini AI
+// 📌 ฟังก์ชันเรียก AI แบบเดียวกับเมื่อคืน
 async function getAIReply(userText) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error("❌ ERROR: GEMINI_API_KEY is not set in Render Environment!");
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: userText,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("❌ Gemini API Error:", error.message || error);
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
-
-  const modelName = await getAvailableModel(apiKey);
-
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-    const response = await axios.post(url, {
-      systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }]
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: userText }]
-        }
-      ]
-    }, { timeout: 15000 });
-
-    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return response.data.candidates[0].content.parts[0].text;
-    }
-  } catch (error) {
-    console.error(`❌ Gemini API Error (${modelName}):`, JSON.stringify(error.response?.data || error.message));
-    activeModelName = null; // รีเซ็ตชื่อโมเดลเพื่อค้นหาใหม่รอบถัดไป
-  }
-
-  return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 
 // Verification Webhook

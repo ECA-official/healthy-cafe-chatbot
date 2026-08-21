@@ -1,14 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 app.use(express.json());
 
-// 📌 หน้า Privacy Policy สำหรับยิงผ่าน Meta Developers
 app.get('/privacy', (req, res) => {
-  res.send('<h1>นโยบายความเป็นส่วนตัว (Privacy Policy)</h1><p>เราเคารพความเป็นส่วนตัวของคุณ และไม่มีการจัดเก็บหรือเผยแพร่ข้อมูลส่วนบุคคลใดๆ</p>');
+  res.send('<h1>นโยบายความเป็นส่วนตัว (Privacy Policy)</h1>');
 });
 
 app.get('/', (req, res) => {
@@ -19,21 +18,16 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// ดึง Token ของแต่ละเพจจาก PAGE_TOKENS (รูปแบบ JSON)
 let pageTokens = {};
 try {
   pageTokens = JSON.parse(process.env.PAGE_TOKENS || '{}');
 } catch (e) {
-  console.error('Failed to parse PAGE_TOKENS, falling back to PAGE_ACCESS_TOKEN');
+  console.error('Failed to parse PAGE_TOKENS');
 }
 
-// 📌 ดึงรายชื่อ API Keys ทั้งหมด (รองรับทั้ง GEMINI_API_KEYS แบบหลายคีย์ และ GEMINI_API_KEY แบบคีย์เดียว)
 const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
 const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
-// -------------------------------------------------------------
-// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe
-// -------------------------------------------------------------
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
@@ -85,73 +79,61 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// รายชื่อโมเดล Gemini ล่าสุด
+// รายชื่อโมเดลมาตรฐาน
 const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
   'gemini-1.5-flash',
-  'gemini-1.5-flash-8b'
+  'gemini-1.5-pro'
 ];
 
-// 📌 ฟังก์ชันสลับคีย์และสลับโมเดลอัตโนมัติ
 async function getAIReply(userText) {
   if (API_KEYS.length === 0) {
-    console.error("❌ No Gemini API Keys configured in environment!");
+    console.error("❌ No API Keys configured!");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
-  // วนลูปสลับ API Key
   for (let keyIdx = 0; keyIdx < API_KEYS.length; keyIdx++) {
     const currentKey = API_KEYS[keyIdx];
-    const ai = new GoogleGenAI({ apiKey: currentKey });
+    const genAI = new GoogleGenerativeAI(currentKey);
 
-    // วนลูปสลับโมเดล
     for (const modelName of CANDIDATE_MODELS) {
       try {
-        const response = await ai.models.generateContent({
+        const model = genAI.getGenerativeModel({ 
           model: modelName,
-          contents: userText,
-          config: { systemInstruction: SYSTEM_INSTRUCTION }
+          systemInstruction: SYSTEM_INSTRUCTION
         });
+        
+        const result = await model.generateContent(userText);
+        const response = await result.response;
+        const text = response.text();
 
-        if (response && response.text) {
-          return response.text; // สำเร็จ คืนคำตอบทันที
+        if (text) {
+          return text;
         }
       } catch (error) {
-        // แสดงข้อผิดพลาดที่แท้จริงออกมาใน Log ของ Render
-        const errMsg = error.message || (error.response ? JSON.stringify(error.response.data) : String(error));
-        console.error(`⚠️ Key #${keyIdx + 1} | Model: ${modelName} | Error: ${errMsg}`);
+        console.error(`⚠️ Key #${keyIdx + 1} (${modelName}) Error: ${error.message}`);
       }
     }
   }
 
-  // หากทุก Key และทุก Model ล้มเหลวทั้งหมด
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 
-// Verification Webhook
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode && token) {
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('WEBHOOK_VERIFIED');
-      res.status(200).send(challenge);
-    } else {
-      res.sendStatus(403);
-    }
+  if (mode && token === VERIFY_TOKEN) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
   }
 });
 
-// Handling incoming messages
 app.post('/webhook', (req, res) => {
   const body = req.body;
-
   if (body.object === 'page') {
     res.status(200).send('EVENT_RECEIVED');
-
     body.entry.forEach(async (entry) => {
       const page_id = entry.id;
       const webhook_event = entry.messaging[0];
@@ -159,8 +141,6 @@ app.post('/webhook', (req, res) => {
 
       if (webhook_event.message) {
         await handleMessage(sender_psid, webhook_event.message, page_id);
-      } else if (webhook_event.postback) {
-        await handlePostback(sender_psid, webhook_event.postback);
       }
     });
   } else {
@@ -176,35 +156,13 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน') || text.includes('คิวอาร์') || text.includes('qr')) {
-    await callSendAPI(sender_psid, { 
-      text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อแสกนจ่ายเงินมาให้นะคะ" 
-    }, page_id);
+  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน')) {
+    await callSendAPI(sender_psid, { text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีให้ค่ะ" }, page_id);
     return;
   }
 
   if (text.includes('รับสิทธิ์')) {
-    await callSendAPI(sender_psid, { 
-      text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพและรูปร่างค่ะ" 
-    }, page_id);
-    await callSendAPI(sender_psid, { 
-      text: "ขอทราบเวลาที่คุณลูกค้าสะดวกเข้ามารับบริการทางหน้าร้านค่ะ" 
-    }, page_id);
-    return;
-  }
-
-  if (text.includes('โทร') || text.includes('ติดต่อ') || text.includes('เบอร์') || text.includes('ปรึกษา')) {
-    await sendContactButton(sender_psid, page_id);
-    return;
-  }
-
-  if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
-    await sendMenuImage(sender_psid, page_id);
-    return;
-  }
-
-  if (text.includes('ที่อยู่') || text.includes('พิกัด') || text.includes('แผนที่') || text.includes('ร้านอยู่ไหน')) {
-    await sendLocationButton(sender_psid, page_id);
+    await callSendAPI(sender_psid, { text: "ขอบคุณสำหรับการรับสิทธิ์ค่ะ ขอทราบเวลาที่สะดวกเข้ามาหน้าร้านนะคะ" }, page_id);
     return;
   }
 
@@ -212,88 +170,15 @@ async function handleMessage(sender_psid, received_message, page_id) {
   await callSendAPI(sender_psid, { text: aiReply }, page_id);
 }
 
-async function handlePostback(sender_psid, received_postback) {
-  console.log('Postback received:', received_postback);
-}
-
-async function sendMenuImage(sender_psid, page_id) {
-  const menuImages = [
-    "https://i.imgur.com/your-image-1.jpg"
-  ];
-
-  const validImages = menuImages.filter(url => url.startsWith("http") && !url.includes("your-image"));
-
-  if (validImages.length > 0) {
-    for (const imageUrl of validImages) {
-      const messageData = {
-        attachment: {
-          type: "image",
-          payload: {
-            url: imageUrl,
-            is_reusable: true
-          }
-        }
-      };
-      await callSendAPI(sender_psid, messageData, page_id);
-    }
-  } else {
-    const textMenu = `🍹 เมนูแนะนำ Healthy Cafe 🍹\n\n1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล เหมาะสำหรับคุมน้ำหนัก/เติมโปรตีนหลังออกกำลังกาย\n2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม\n\nสนใจสอบถามโปรแกรมลดน้ำหนักเพิ่มเติม แจ้งแอดมินได้เลยนะคะ ✨`;
-    await callSendAPI(sender_psid, { text: textMenu }, page_id);
-  }
-}
-
-async function sendLocationButton(sender_psid, page_id) {
-  const targetPageId = page_id || '';
-  const pageUrl = targetPageId ? `https://www.facebook.com/${targetPageId}` : "https://www.facebook.com";
-  const messageData = {
-    attachment: {
-      type: "template",
-      payload: {
-        template_type: "button",
-        text: "คุณลูกค้าสามารถคลิกดูพิกัดและแผนที่ร้านบนหน้าเพจของเราได้เลยค่ะ 📍",
-        buttons: [
-          {
-            type: "web_url",
-            url: pageUrl,
-            title: "ดูพิกัดบนหน้าเพจ"
-          }
-        ]
-      }
-    }
-  };
-  await callSendAPI(sender_psid, messageData, page_id);
-}
-
-async function sendContactButton(sender_psid, page_id) {
-  const targetPageId = page_id || '';
-  const pageUrl = targetPageId ? `https://www.facebook.com/${targetPageId}/about` : "https://www.facebook.com";
-  const messageData = {
-    attachment: {
-      type: "template",
-      payload: {
-        template_type: "button",
-        text: "หากมีข้อสอบถามหรือต้องการปรึกษาเพิ่มเติม สามารถโทรติดต่อผู้เชี่ยวชาญได้เลยนะคะ ยินดีให้บริการค่ะ 📞",
-        buttons: [
-          {
-            type: "web_url",
-            url: pageUrl,
-            title: "ติดต่อผู้เชี่ยวชาญ"
-          }
-        ]
-      }
-    }
-  };
-  await callSendAPI(sender_psid, messageData, page_id);
-}
-
 async function callSendAPI(sender_psid, response, page_id) {
   const token = pageTokens[page_id] || PAGE_ACCESS_TOKEN;
-  const request_body = { recipient: { id: sender_psid }, message: response };
-
   try {
-    await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${token}`, request_body);
+    await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${token}`, {
+      recipient: { id: sender_psid },
+      message: response
+    });
   } catch (error) {
-    console.error('Unable to send message:', error.response ? error.response.data : error);
+    console.error('Send message failed:', error.response ? error.response.data : error.message);
   }
 }
 

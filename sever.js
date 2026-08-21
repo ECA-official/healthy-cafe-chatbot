@@ -42,6 +42,7 @@ const SYSTEM_INSTRUCTION = `
 3) โปรแกรม 10 วัน FIRM SET
 ฮุก: เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
 โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
 ขั้นตอนที่ 1: การแนะนำโปรแกรม
@@ -70,33 +71,8 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-let cachedModelName = null;
-
-async function getValidModel(apiKey) {
-  if (cachedModelName) return cachedModelName;
-
-  try {
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const res = await axios.get(listUrl, { timeout: 8000 });
-    
-    if (res.data?.models) {
-      const available = res.data.models.find(m => 
-        m.supportedGenerationMethods?.includes('generateContent') &&
-        !m.name.includes('embedding')
-      );
-      if (available) {
-        cachedModelName = available.name.replace('models/', '');
-        console.log(`✅ Auto-selected available model: ${cachedModelName}`);
-        return cachedModelName;
-      }
-    }
-  } catch (e) {
-    console.error('ListModels failed, using fallback gemini-3.6-flash');
-  }
-
-  // ใช้ gemini-3.6-flash ตามที่ Google แนะนำใน Log
-  return 'gemini-3.6-flash';
-}
+// ระบุชื่อโมเดลตามลำดับความสำคัญ (ยิง 3.6-flash ก่อน)
+const TARGET_MODELS = ['gemini-3.6-flash', 'gemini-1.5-flash'];
 
 async function getAIReply(userText) {
   if (!GEMINI_API_KEY) {
@@ -105,26 +81,27 @@ async function getAIReply(userText) {
   }
 
   const cleanKey = GEMINI_API_KEY.trim();
-  const modelName = await getValidModel(cleanKey);
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
-    const payload = {
-      system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-      contents: [{ role: 'user', parts: [{ text: userText }] }]
-    };
+  for (const modelName of TARGET_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
+      const payload = {
+        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }]
+      };
 
-    const res = await axios.post(url, payload, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 10000
-    });
+      const res = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10000
+      });
 
-    if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return res.data.candidates[0].content.parts[0].text;
+      if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        console.log(`✅ Success using model: ${modelName}`);
+        return res.data.candidates[0].content.parts[0].text;
+      }
+    } catch (error) {
+      console.error(`⚠️ Model ${modelName} Error:`, error.response?.data?.error?.message || error.message);
     }
-  } catch (error) {
-    console.error(`❌ Gemini Error (${modelName}):`, error.response?.data || error.message);
-    cachedModelName = null;
   }
 
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";

@@ -14,8 +14,12 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
+// ตั้งค่า Gemini AI SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// -------------------------------------------------------------
+// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (Healthy Cafe)
+// -------------------------------------------------------------
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
@@ -63,10 +67,11 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
+// ฟังก์ชันส่งข้อความไปหา Gemini AI (โมเดล gemini-3.6-flash)
 async function getAIReply(userText) {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.6-flash',
       contents: userText,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION
@@ -79,6 +84,7 @@ async function getAIReply(userText) {
   }
 }
 
+// Verification Webhook
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -94,6 +100,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+// Handling incoming messages
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
@@ -115,14 +122,17 @@ app.post('/webhook', (req, res) => {
   }
 });
 
+// ฟังก์ชันจัดการข้อความขาเข้า
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
+  // 1. ตรวจจับการส่งสลิป
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดค่ะ" });
     return;
   }
 
+  // 2. ถ้าลูกค้าถามหาช่องทางโอนเงิน / เลขบัญชี
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน') || text.includes('คิวอาร์') || text.includes('qr')) {
     await callSendAPI(sender_psid, { 
       text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อแสกนจ่ายเงินมาให้นะคะ" 
@@ -130,6 +140,7 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
+  // 3. ถ้าลูกค้าพิมพ์คำว่า "รับสิทธิ์"
   if (text.includes('รับสิทธิ์')) {
     await callSendAPI(sender_psid, { 
       text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพและรูปร่างค่ะ" 
@@ -140,29 +151,35 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
+  // 4. ถ้าลูกค้าถามหาการโทรติดต่อ/ปรึกษาผู้เชี่ยวชาญ
   if (text.includes('โทร') || text.includes('ติดต่อ') || text.includes('เบอร์') || text.includes('ปรึกษา')) {
     await sendContactButton(sender_psid, page_id);
     return;
   }
 
+  // 5. ถ้าลูกค้าพิมพ์คำว่า "เมนู", "สั่ง", หรือ "รูป"
   if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
     await sendMenuImage(sender_psid);
     return;
   }
 
+  // 6. ถ้าลูกค้าถามหาที่อยู่ พิกัด แผนที่
   if (text.includes('ที่อยู่') || text.includes('พิกัด') || text.includes('แผนที่') || text.includes('ร้านอยู่ไหน')) {
     await sendLocationButton(sender_psid, page_id);
     return;
   }
 
+  // 7. คำถามอื่นๆ ส่งให้ AI (Gemini 3.6 Flash)
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }
 
+// ฟังก์ชันจัดการ Postback
 async function handlePostback(sender_psid, received_postback) {
   console.log('Postback received:', received_postback);
 }
 
+// 📌 ฟังก์ชันส่งรูปภาพเมนู 2 รูปให้ลูกค้า
 async function sendMenuImage(sender_psid) {
   const menuImages = [
     "URL_รูปภาพที่_1_วางตรงนี้.jpg",
@@ -185,6 +202,7 @@ async function sendMenuImage(sender_psid) {
   }
 }
 
+// 📌 ฟังก์ชันส่งปุ่มพิกัดร้านไปยังหน้าเพจ
 async function sendLocationButton(sender_psid, page_id) {
   const pageUrl = page_id ? `https://www.facebook.com/${page_id}` : "https://www.facebook.com";
   const messageData = {
@@ -206,6 +224,7 @@ async function sendLocationButton(sender_psid, page_id) {
   await callSendAPI(sender_psid, messageData);
 }
 
+// 📌 ฟังก์ชันส่งปุ่มไปยังหน้าเพจเพื่อติดต่อผู้เชี่ยวชาญ / ดูเบอร์โทร
 async function sendContactButton(sender_psid, page_id) {
   const pageUrl = page_id ? `https://www.facebook.com/${page_id}/about` : "https://www.facebook.com";
   const messageData = {
@@ -227,6 +246,7 @@ async function sendContactButton(sender_psid, page_id) {
   await callSendAPI(sender_psid, messageData);
 }
 
+// ฟังก์ชันส่งข้อความหา Facebook API
 async function callSendAPI(sender_psid, response) {
   const request_body = { recipient: { id: sender_psid }, message: response };
   try {

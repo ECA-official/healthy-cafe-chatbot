@@ -43,12 +43,19 @@ const SYSTEM_INSTRUCTION = `
 เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
 โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
 
-โปรโมชั่นพิเศษเมื่อตัดสินใจเข้าโปรแกรมกับทางเราสามารถใช้สิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ได้ฟรี
+[กฎสำคัญเรื่องโปรโมชั่นและการสนทนา]
+1. โปรโมชั่นตรวจสุขภาพ: "สิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ฟรี"
+   - ห้ามส่งโปรโมชั่นนี้ในคำตอบทั่วไปเด็ดขาด!
+   - ให้แจ้งโปรโมชั่นนี้เฉพาะตอนเสนอ/แนะนำโปรแกรมลดน้ำหนักเท่านั้น
+   - เมื่อลูกค้าสนใจหรือเลือกโปรแกรม ให้ถามปิดท้ายเสมอว่า: "สนใจรับสิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ฟรีด้วยไหมคะ? ถ้ารับสิทธิ์ให้พิมพ์ว่า 'รับสิทธิ์' มาด้วยนะคะ"
 
-[กฎสำคัญเรื่องการทักทาย]
-1. ห้ามกล่าวสวัสดี (เช่น "สวัสดีค่ะ", "สวัสดีนะคะ", "ยินดีต้อนรับค่ะ") ในการตอบคำถามทั่วไป ให้ตอบเข้าเรื่องคำถามของลูกค้าได้เลยทันที!
-2. จะกล่าว "สวัสดี" ได้ต่อเมื่อลูกค้าเป็นฝ่ายพิมพ์ทักทายมาก่อนเท่านั้น (เช่น "สวัสดี", "หวัดดี", "มอนิ่ง", "Hello", "Hi")
-3. ห้ามแจก/สุ่มเลขบัญชีธนาคารเด็ดขาด หากลูกค้าจะโอนเงิน ให้แจ้งให้รอแอดมินคนจริงมาส่งเลขบัญชีให้
+2. เรื่องการทักทาย:
+   - ห้ามกล่าวสวัสดี (เช่น "สวัสดีค่ะ", "สวัสดีนะคะ") ในการตอบคำถามทั่วไป ให้ตอบเข้าเรื่องทันที
+   - กล่าว "สวัสดี" ได้ต่อเมื่อลูกค้าเป็นฝ่ายพิมพ์ทักทายมาก่อนเท่านั้น (เช่น "สวัสดี", "หวัดดี", "มอนิ่ง", "Hello", "Hi")
+
+3. เรื่องการเงินและการชำระเงิน:
+   - ห้ามแจก/สุ่มเลขบัญชีธนาคารเด็ดขาด หากลูกค้าถามเรื่องการโอนเงิน ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือ QR Code ให้
+   - หากลูกค้าต้องการโทรปรึกษาเพิ่มเติม สามารถแนะนำให้กดปุ่มเพื่อดูเบอร์ติดต่อผู้เชี่ยวชาญได้
 `;
 
 // ฟังก์ชันส่งข้อความไปหา Gemini AI
@@ -110,20 +117,50 @@ app.post('/webhook', (req, res) => {
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
-  // 1. ถ้าลูกค้าพิมพ์คำว่า "เมนู", "สั่ง", หรือ "รูป"
-  if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
-    // 1.1 ส่งรูปภาพเมนูทั้ง 2 รูป
-    await sendMenuImage(sender_psid);
-
-    // 1.2 ดึงโพสต์ล่าสุดจากหน้าเพจส่งเป็น Carousel อัตโนมัติ
-    const carouselData = await getPagePostsAsCarousel(page_id, PAGE_ACCESS_TOKEN);
-    if (carouselData) {
-      await callSendAPI(sender_psid, carouselData);
-    }
+  // 1. ตรวจจับการส่งสลิป (ลูกค้าส่งรูปภาพเข้ามา หรือพิมพ์คำว่า "สลิป" / "โอนแล้ว")
+  if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
+    await callSendAPI(sender_psid, { text: "รับยอดค่ะ" });
     return;
   }
 
-  // 2. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
+  // 2. ถ้าลูกค้าถามหาช่องทางโอนเงิน / เลขบัญชี / จ่ายเงิน
+  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน') || text.includes('คิวอาร์') || text.includes('qr')) {
+    await callSendAPI(sender_psid, { 
+      text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อแสกนจ่ายเงินมาให้นะคะ" 
+    });
+    return;
+  }
+
+  // 3. ถ้าลูกค้าพิมพ์คำว่า "รับสิทธิ์"
+  if (text.includes('รับสิทธิ์')) {
+    await callSendAPI(sender_psid, { 
+      text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพและรูปร่างค่ะ" 
+    });
+    await callSendAPI(sender_psid, { 
+      text: "ขอทราบเวลาที่คุณลูกค้าสะดวกเข้ามารับบริการทางหน้าร้านค่ะ" 
+    });
+    return;
+  }
+
+  // 4. ถ้าลูกค้าถามหาการโทรติดต่อ/ปรึกษาผู้เชี่ยวชาญ
+  if (text.includes('โทร') || text.includes('ติดต่อ') || text.includes('เบอร์') || text.includes('ปรึกษา')) {
+    await sendContactButton(sender_psid, page_id);
+    return;
+  }
+
+  // 5. ถ้าลูกค้าพิมพ์คำว่า "เมนู", "สั่ง", หรือ "รูป" (ส่งเฉพาะรูปภาพเมนู)
+  if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
+    await sendMenuImage(sender_psid);
+    return;
+  }
+
+  // 6. ถ้าลูกค้าถามหาที่อยู่ พิกัด แผนที่
+  if (text.includes('ที่อยู่') || text.includes('พิกัด') || text.includes('แผนที่') || text.includes('ร้านอยู่ไหน')) {
+    await sendLocationButton(sender_psid, page_id);
+    return;
+  }
+
+  // 7. คำถามอื่นๆ ให้ AI (Gemini) ตอบทั้งหมด
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }
@@ -137,14 +174,12 @@ async function handlePostback(sender_psid, received_postback) {
 // 📌 ฟังก์ชันส่งรูปภาพเมนู 2 รูปให้ลูกค้า
 // -------------------------------------------------------------
 async function sendMenuImage(sender_psid) {
-  // 👈 นำลิงก์รูปภาพเมนูทั้ง 2 รูปมาใส่ในเครื่องหมายคำพูดด้านล่างนี้ได้เลยครับ
   const menuImages = [
-    "https://i.postimg.cc/zGpf9y27/4.png", // รูปที่ 1
-    "https://i.postimg.cc/JzKh9sYq/5.png"  // รูปที่ 2
+    "URL_รูปภาพที่_1_วางตรงนี้.jpg", // รูปที่ 1
+    "URL_รูปภาพที่_2_วางตรงนี้.jpg"  // รูปที่ 2
   ];
 
   for (const imageUrl of menuImages) {
-    // ข้ามการส่งหากยังไม่ได้เปลี่ยนลิงก์รูปภาพตัวอย่าง
     if (imageUrl.includes("URL_รูปภาพที่")) continue;
 
     const messageData = {
@@ -160,41 +195,52 @@ async function sendMenuImage(sender_psid) {
   }
 }
 
-// ฟังก์ชันดึงโพสต์ล่าสุดจากหน้าเพจทำ Carousel
-async function getPagePostsAsCarousel(page_id, page_access_token) {
-  try {
-    const url = `https://graph.facebook.com/v20.0/${page_id}/posts?fields=message,full_picture,permalink_url&limit=5&access_token=${page_access_token}`;
-    const response = await fetch(url);
-    const result = await response.json();
-
-    if (!result.data || result.data.length === 0) return null;
-
-    const elements = result.data
-      .filter(post => post.full_picture)
-      .map(post => ({
-        title: post.message ? post.message.split('\n')[0].substring(0, 80) : 'สินค้า/เมนูแนะนำ',
-        image_url: post.full_picture,
-        subtitle: post.message ? post.message.substring(0, 80) : 'กดเพื่อดูรายละเอียด',
-        buttons: [{
-          type: 'web_url',
-          url: post.permalink_url,
-          title: 'ดูโพสต์บนเพจ'
-        }]
-      }));
-
-    return {
-      attachment: {
-        type: 'template',
-        payload: {
-          template_type: 'generic',
-          elements: elements
-        }
+// -------------------------------------------------------------
+// 📌 ฟังก์ชันส่งปุ่มพิกัดร้านไปยังหน้าเพจ
+// -------------------------------------------------------------
+async function sendLocationButton(sender_psid, page_id) {
+  const pageUrl = page_id ? `https://www.facebook.com/${page_id}` : "https://www.facebook.com";
+  const messageData = {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: "คุณลูกค้าสามารถคลิกดูพิกัดและแผนที่ร้านบนหน้าเพจของเราได้เลยค่ะ 📍",
+        buttons: [
+          {
+            type: "web_url",
+            url: pageUrl,
+            title: "ดูพิกัดบนหน้าเพจ"
+          }
+        ]
       }
-    };
-  } catch (error) {
-    console.error("Error fetching page posts:", error);
-    return null;
-  }
+    }
+  };
+  await callSendAPI(sender_psid, messageData);
+}
+
+// -------------------------------------------------------------
+// 📌 ฟังก์ชันส่งปุ่มไปยังหน้าเพจเพื่อติดต่อผู้เชี่ยวชาญ / ดูเบอร์โทร
+// -------------------------------------------------------------
+async function sendContactButton(sender_psid, page_id) {
+  const pageUrl = page_id ? `https://www.facebook.com/${page_id}/about` : "https://www.facebook.com";
+  const messageData = {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: "หากมีข้อสอบถามหรือต้องการปรึกษาเพิ่มเติม สามารถโทรติดต่อผู้เชี่ยวชาญได้เลยนะคะ ยินดีให้บริการค่ะ 📞",
+        buttons: [
+          {
+            type: "web_url",
+            url: pageUrl,
+            title: "ติดต่อผู้เชี่ยวชาญ"
+          }
+        ]
+      }
+    }
+  };
+  await callSendAPI(sender_psid, messageData);
 }
 
 // ฟังก์ชันส่งข้อความหา Facebook API

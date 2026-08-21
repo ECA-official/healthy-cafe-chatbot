@@ -42,7 +42,6 @@ const SYSTEM_INSTRUCTION = `
 3) โปรแกรม 10 วัน FIRM SET
 เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
 โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
-
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
 ขั้นตอนที่ 1: การแนะนำโปรแกรม
@@ -73,7 +72,6 @@ const SYSTEM_INSTRUCTION = `
 
 let cachedModelName = null;
 
-// ดึงชื่อโมเดลที่ใช้ได้จริงของ API Key ตัวนี้แบบอัตโนมัติ
 async function getValidModel(apiKey) {
   if (cachedModelName) return cachedModelName;
 
@@ -93,10 +91,11 @@ async function getValidModel(apiKey) {
       }
     }
   } catch (e) {
-    console.error('ListModels failed:', e.response?.data || e.message);
+    console.error('ListModels failed, using fallback gemini-3.6-flash');
   }
 
-  return 'gemini-2.0-flash';
+  // ใช้ gemini-3.6-flash ตามที่ Google แนะนำใน Log
+  return 'gemini-3.6-flash';
 }
 
 async function getAIReply(userText) {
@@ -125,7 +124,7 @@ async function getAIReply(userText) {
     }
   } catch (error) {
     console.error(`❌ Gemini Error (${modelName}):`, error.response?.data || error.message);
-    cachedModelName = null; // ค้นหาโมเดลใหม่ทันทีหากตัวเดิมมีปัญหา
+    cachedModelName = null;
   }
 
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";

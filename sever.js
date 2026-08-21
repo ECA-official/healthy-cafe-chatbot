@@ -14,7 +14,6 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// 📌 ตั้งค่า SDK ตามแบบเมื่อคืน
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // -------------------------------------------------------------
@@ -46,16 +45,14 @@ const SYSTEM_INSTRUCTION = `
 - ❌ ห้ามถามประโยค "สนใจรับสิทธิ์... ถ้ารับสิทธิ์ให้พิมพ์ว่า..." ในขั้นตอนนี้เด็ดขาด!
 
 ขั้นตอนที่ 2: เมื่อลูกค้าเลือก/สนใจโปรแกรม
-- ให้ตรวจสอบว่าลูกค้าส่งข้อมูลทั้ง 6 ข้อนี้มาหรือยัง: (1.ชื่อเล่น 2.อายุ 3.น้ำหนัก 4.ส่วนสูง 5.เบอร์โทรติดต่อ 6.โรคประจำตัว)
+- ให้ตรวจสอบว่าลูกค้าส่งข้อมูลทั้ง 4 ข้อนี้มาหรือยัง: (1.ชื่อเล่น 2.อายุ 3.น้ำหนัก 4.ส่วนสูง)
 - หากยังไม่ได้ให้ หรือให้มาไม่ครบ ให้ส่งข้อความขอข้อมูล (ถามเฉพาะหัวข้อที่ขาด):
   "เพื่อเป็นความสะดวกในการให้บริการ ขออนุญาตทราบรายละเอียดของคุณลูกค้านะคะ
   - ชื่อเล่น
   - อายุ
   - น้ำหนัก
-  - ส่วนสูง
-  - เบอร์โทรติดต่อ
-  และมีโรคประจำตัวอะไรด้วยมั้ยคะ"
-- หากลูกค้าให้ข้อมูลครบทั้ง 6 ข้อแล้ว ให้รับทราบข้อมูล และถามปิดท้ายว่า:
+  - ส่วนสูง"
+- หากลูกค้าให้ข้อมูลครบทั้ง 4 ข้อแล้ว ให้รับทราบข้อมูล และถามปิดท้ายว่า:
   "สนใจรับสิทธิ์ตรวจเช็คสุขภาพและรูปร่างด้วยเครื่องมือทางการแพทย์ฟรีด้วยไหมคะ? ถ้ารับสิทธิ์ให้พิมพ์ว่า 'รับสิทธิ์' มาด้วยนะคะ"
 
 ขั้นตอนที่ 3: เมื่อลูกค้านัดวันเวลาเข้ามาหน้าร้าน
@@ -67,21 +64,26 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// 📌 ฟังก์ชันเรียก AI แบบเดียวกับเมื่อคืน
-async function getAIReply(userText) {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: userText,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION
+// 📌 ฟังก์ชันเรียก AI + ระบบ Retry อัตโนมัติรองรับ Error 503
+async function getAIReply(userText, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: userText,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION
+        }
+      });
+      return response.text;
+    } catch (error) {
+      console.error(`❌ Gemini API Error (Attempt ${attempt}/${retries}):`, error.message || error);
+      if (attempt < retries) {
+        await new Promise(res => setTimeout(res, 1500 * attempt)); // เว้นระยะแล้วลองยิงใหม่
       }
-    });
-    return response.text;
-  } catch (error) {
-    console.error("❌ Gemini API Error:", error.message || error);
-    return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
+    }
   }
+  return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 
 // Verification Webhook

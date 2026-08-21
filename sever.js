@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// ดึง Token ของแต่ละเพจจาก PAGE_TOKENS (รูปแบบ JSON) หรือใช้ PAGE_ACCESS_TOKEN เป็นค่าสำรอง
+// ดึง Token ของแต่ละเพจจาก PAGE_TOKENS (รูปแบบ JSON)
 let pageTokens = {};
 try {
   pageTokens = JSON.parse(process.env.PAGE_TOKENS || '{}');
@@ -27,10 +27,12 @@ try {
   console.error('Failed to parse PAGE_TOKENS, falling back to PAGE_ACCESS_TOKEN');
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// 📌 ดึงรายชื่อ API Keys ทั้งหมด (รองรับทั้ง GEMINI_API_KEYS แบบหลายคีย์ และ GEMINI_API_KEY แบบคีย์เดียว)
+const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
 // -------------------------------------------------------------
-// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (ชุดเดิมเต็มทุกคำพูด)
+// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe
 // -------------------------------------------------------------
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
@@ -45,15 +47,9 @@ const SYSTEM_INSTRUCTION = `
 2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
 
 [โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
-1) โปรแกรม 3 วัน WOW
-ตัวบวม น้ำหนักขึ้นง่าย? เริ่มเปลี่ยนได้ใน 3 วัน!
-เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
-2) โปรแกรม 7 วัน FIT SET
-7 วัน จุดเริ่มต้นของหุ่นที่คุณอยากมี
-โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
-3) โปรแกรม 10 วัน FIRM SET
-เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
-โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+1) โปรแกรม 3 วัน WOW: เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
+2) โปรแกรม 7 วัน FIT SET: โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
+3) โปรแกรม 10 วัน FIRM SET: โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
 
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
@@ -83,30 +79,47 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// 📌 รายชื่อโมเดลเรียงตามสเปกรองรับโควต้าฟรีสูง
+// รายชื่อโมเดล Gemini ล่าสุด
 const CANDIDATE_MODELS = [
-  'gemini-1.5-flash',
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b'
 ];
 
+// 📌 ฟังก์ชันสลับคีย์และสลับโมเดลอัตโนมัติ
 async function getAIReply(userText) {
-  for (const modelName of CANDIDATE_MODELS) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: userText,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION
+  if (API_KEYS.length === 0) {
+    console.error("❌ No Gemini API Keys configured in environment!");
+    return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
+  }
+
+  // วนลูปสลับ API Key
+  for (let keyIdx = 0; keyIdx < API_KEYS.length; keyIdx++) {
+    const currentKey = API_KEYS[keyIdx];
+    const ai = new GoogleGenAI({ apiKey: currentKey });
+
+    // วนลูปสลับโมเดล
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: userText,
+          config: { systemInstruction: SYSTEM_INSTRUCTION }
+        });
+
+        if (response && response.text) {
+          return response.text; // สำเร็จ คืนคำตอบทันที
         }
-      });
-      if (response && response.text) {
-        return response.text;
+      } catch (error) {
+        // แสดงข้อผิดพลาดที่แท้จริงออกมาใน Log ของ Render
+        const errMsg = error.message || (error.response ? JSON.stringify(error.response.data) : String(error));
+        console.error(`⚠️ Key #${keyIdx + 1} | Model: ${modelName} | Error: ${errMsg}`);
       }
-    } catch (error) {
-      console.error(`⚠️ Model ${modelName} Quota Exceeded/Failed. Switching to next model...`);
     }
   }
+
+  // หากทุก Key และทุก Model ล้มเหลวทั้งหมด
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 

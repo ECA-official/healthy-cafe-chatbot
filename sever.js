@@ -174,8 +174,8 @@ async function handlePostback(sender_psid, received_postback) {
 
 async function sendMenuImage(sender_psid) {
   const menuImages = [
-    "URL_รูปภาพที่_1_วางตรงนี้.jpg",
-    "URL_รูปภาพที่_2_วางตรงนี้.jpg"
+    "https://i.postimg.cc/zGpf9y27/4.png", // 👈 บรรทัด 173: ใส่ URL รูปที่ 1
+    "https://i.postimg.cc/JzKh9sYq/5.png"  // 👈 บรรทัด 174: ใส่ URL รูปที่ 2 (ถ้าไม่มีลบแถวนี้ออกได้)
   ];
 
   for (const imageUrl of menuImages) {

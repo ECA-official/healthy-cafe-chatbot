@@ -63,39 +63,49 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// ฟังก์ชันเรียก Gemini REST API โดยตรงผ่าน Axios
+// ฟังก์ชันเรียก Gemini API แบบ Auto-Retry หลายชื่อ Model ป้องกัน 404
 async function getAIReply(userText) {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("❌ ERROR: ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Environment Variables");
-      return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
-    }
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-    const response = await axios.post(url, {
-      systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }]
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: userText }]
-        }
-      ]
-    });
-
-    if (response.data && response.data.candidates && response.data.candidates.length > 0) {
-      return response.data.candidates[0].content.parts[0].text;
-    } else {
-      console.error("❌ Unexpected Gemini Response:", JSON.stringify(response.data));
-      return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
-    }
-  } catch (error) {
-    console.error("❌ Gemini API Error Details:", error.response ? JSON.stringify(error.response.data) : error.message);
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("❌ ERROR: GEMINI_API_KEY Missing!");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
+
+  // ลิสต์โมเดลสำรอง วนลูปยิงจนกว่าจะเจอตัวที่ใช้ได้
+  const candidateModels = [
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro'
+  ];
+
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await axios.post(url, {
+        systemInstruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }]
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: userText }]
+          }
+        ]
+      }, { timeout: 10000 });
+
+      if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        console.log(`✅ Success with model: ${model}`);
+        return response.data.candidates[0].content.parts[0].text;
+      }
+    } catch (error) {
+      console.log(`⚠️ Model ${model} failed (Status: ${error.response?.status || 'Error'}). Trying next candidate...`);
+    }
+  }
+
+  console.error("❌ All Gemini Models Failed!");
+  return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 
 // Verification Webhook
@@ -136,17 +146,14 @@ app.post('/webhook', (req, res) => {
   }
 });
 
-// ฟังก์ชันจัดการข้อความขาเข้า
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
-  // 1. ตรวจจับการส่งสลิป
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดค่ะ" });
     return;
   }
 
-  // 2. ถ้าลูกค้าถามหาช่องทางโอนเงิน / เลขบัญชี
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน') || text.includes('คิวอาร์') || text.includes('qr')) {
     await callSendAPI(sender_psid, { 
       text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อแสกนจ่ายเงินมาให้นะคะ" 
@@ -154,7 +161,6 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 3. ถ้าลูกค้าพิมพ์คำว่า "รับสิทธิ์"
   if (text.includes('รับสิทธิ์')) {
     await callSendAPI(sender_psid, { 
       text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพและรูปร่างค่ะ" 
@@ -165,35 +171,29 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 4. ถ้าลูกค้าถามหาการโทรติดต่อ/ปรึกษาผู้เชี่ยวชาญ
   if (text.includes('โทร') || text.includes('ติดต่อ') || text.includes('เบอร์') || text.includes('ปรึกษา')) {
     await sendContactButton(sender_psid, page_id);
     return;
   }
 
-  // 5. ถ้าลูกค้าพิมพ์คำว่า "เมนู", "สั่ง", หรือ "รูป"
   if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
     await sendMenuImage(sender_psid);
     return;
   }
 
-  // 6. ถ้าลูกค้าถามหาที่อยู่ พิกัด แผนที่
   if (text.includes('ที่อยู่') || text.includes('พิกัด') || text.includes('แผนที่') || text.includes('ร้านอยู่ไหน')) {
     await sendLocationButton(sender_psid, page_id);
     return;
   }
 
-  // 7. คำถามอื่นๆ ส่งให้ AI ผ่าน Gemini Direct REST API
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }
 
-// ฟังก์ชันจัดการ Postback
 async function handlePostback(sender_psid, received_postback) {
   console.log('Postback received:', received_postback);
 }
 
-// 📌 ฟังก์ชันส่งรูปภาพเมนู 2 รูปให้ลูกค้า
 async function sendMenuImage(sender_psid) {
   const menuImages = [
     "URL_รูปภาพที่_1_วางตรงนี้.jpg",
@@ -216,7 +216,6 @@ async function sendMenuImage(sender_psid) {
   }
 }
 
-// 📌 ฟังก์ชันส่งปุ่มพิกัดร้านไปยังหน้าเพจ
 async function sendLocationButton(sender_psid, page_id) {
   const pageUrl = page_id ? `https://www.facebook.com/${page_id}` : "https://www.facebook.com";
   const messageData = {
@@ -238,7 +237,6 @@ async function sendLocationButton(sender_psid, page_id) {
   await callSendAPI(sender_psid, messageData);
 }
 
-// 📌 ฟังก์ชันส่งปุ่มไปยังหน้าเพจเพื่อติดต่อผู้เชี่ยวชาญ / ดูเบอร์โทร
 async function sendContactButton(sender_psid, page_id) {
   const pageUrl = page_id ? `https://www.facebook.com/${page_id}/about` : "https://www.facebook.com";
   const messageData = {
@@ -260,7 +258,6 @@ async function sendContactButton(sender_psid, page_id) {
   await callSendAPI(sender_psid, messageData);
 }
 
-// ฟังก์ชันส่งข้อความหา Facebook API
 async function callSendAPI(sender_psid, response) {
   const request_body = { recipient: { id: sender_psid }, message: response };
   try {

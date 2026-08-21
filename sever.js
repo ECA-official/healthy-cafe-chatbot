@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// รองรับทั้งคีย์เดียวและหลายคีย์ (คั่นด้วยจุลภาค ,)
 const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
 const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
@@ -73,12 +72,10 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// รายชื่อโมเดลสำรองเมื่อตัวแรกติด Quota Limit
+// อัปเดตใช้เฉพาะโมเดลที่ Google รองรับในปัจจุบัน
 const CANDIDATE_MODELS = [
-  'gemini-2.0-flash',
   'gemini-3.6-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-8b'
+  'gemini-3.5-flash-lite'
 ];
 
 async function getAIReply(userText) {

@@ -63,48 +63,64 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// ฟังก์ชันเรียก Gemini API แบบ Auto-Retry หลายชื่อ Model ป้องกัน 404
+let activeModelName = null;
+
+// ฟังก์ชันค้นหาโมเดลที่ใช้งานได้จริงจาก Google
+async function getAvailableModel(apiKey) {
+  if (activeModelName) return activeModelName;
+
+  try {
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const res = await axios.get(listUrl);
+    const models = res.data.models || [];
+    
+    // ค้นหาโมเดลแรกที่รองรับ generateContent
+    const validModel = models.find(m => m.supportedGenerationMethods?.includes("generateContent"));
+    if (validModel) {
+      activeModelName = validModel.name.replace('models/', '');
+      console.log(`🎯 Auto-detected active model: ${activeModelName}`);
+      return activeModelName;
+    }
+  } catch (err) {
+    console.error("❌ Model Discovery Error:", err.response?.data || err.message);
+  }
+  
+  // สำรองไว้กรณี List API ไม่ตอบกลับ
+  return 'gemini-1.5-flash';
+}
+
+// ฟังก์ชันยิงหา Gemini AI
 async function getAIReply(userText) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("❌ ERROR: GEMINI_API_KEY Missing!");
+    console.error("❌ ERROR: GEMINI_API_KEY is not set in Render Environment!");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
-  // ลิสต์โมเดลสำรอง วนลูปยิงจนกว่าจะเจอตัวที่ใช้ได้
-  const candidateModels = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash-exp',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro'
-  ];
+  const modelName = await getAvailableModel(apiKey);
 
-  for (const model of candidateModels) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const response = await axios.post(url, {
-        systemInstruction: {
-          parts: [{ text: SYSTEM_INSTRUCTION }]
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: userText }]
-          }
-        ]
-      }, { timeout: 10000 });
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    const response = await axios.post(url, {
+      systemInstruction: {
+        parts: [{ text: SYSTEM_INSTRUCTION }]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userText }]
+        }
+      ]
+    }, { timeout: 15000 });
 
-      if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        console.log(`✅ Success with model: ${model}`);
-        return response.data.candidates[0].content.parts[0].text;
-      }
-    } catch (error) {
-      console.log(`⚠️ Model ${model} failed (Status: ${error.response?.status || 'Error'}). Trying next candidate...`);
+    if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return response.data.candidates[0].content.parts[0].text;
     }
+  } catch (error) {
+    console.error(`❌ Gemini API Error (${modelName}):`, JSON.stringify(error.response?.data || error.message));
+    activeModelName = null; // รีเซ็ตชื่อโมเดลเพื่อค้นหาใหม่รอบถัดไป
   }
 
-  console.error("❌ All Gemini Models Failed!");
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 

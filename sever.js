@@ -1,22 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 app.use(express.json());
 
-app.get('/privacy', (req, res) => {
-  res.send('<h1>นโยบายความเป็นส่วนตัว (Privacy Policy)</h1>');
-});
-
-app.get('/', (req, res) => {
-  res.send('Madam Healthy Cafe Bot is running!');
-});
+app.get('/privacy', (req, res) => res.send('<h1>Privacy Policy</h1>'));
+app.get('/', (req, res) => res.send('Madam Healthy Cafe Bot is running!'));
 
 const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 let pageTokens = {};
 try {
@@ -24,9 +19,6 @@ try {
 } catch (e) {
   console.error('Failed to parse PAGE_TOKENS');
 }
-
-const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
-const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
@@ -79,40 +71,29 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// รายชื่อโมเดลมาตรฐาน
-const CANDIDATE_MODELS = [
-  'gemini-1.5-flash',
-  'gemini-1.5-pro'
-];
-
 async function getAIReply(userText) {
-  if (API_KEYS.length === 0) {
-    console.error("❌ No API Keys configured!");
+  if (!GEMINI_API_KEY) {
+    console.error("❌ GEMINI_API_KEY Missing");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
-  for (let keyIdx = 0; keyIdx < API_KEYS.length; keyIdx++) {
-    const currentKey = API_KEYS[keyIdx];
-    const genAI = new GoogleGenerativeAI(currentKey);
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY.trim()}`;
+    const payload = {
+      system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+      contents: [{ role: 'user', parts: [{ text: userText }] }]
+    };
 
-    for (const modelName of CANDIDATE_MODELS) {
-      try {
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          systemInstruction: SYSTEM_INSTRUCTION
-        });
-        
-        const result = await model.generateContent(userText);
-        const response = await result.response;
-        const text = response.text();
+    const res = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
+    });
 
-        if (text) {
-          return text;
-        }
-      } catch (error) {
-        console.error(`⚠️ Key #${keyIdx + 1} (${modelName}) Error: ${error.message}`);
-      }
+    if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return res.data.candidates[0].content.parts[0].text;
     }
+  } catch (error) {
+    console.error('❌ Gemini Error:', error.response?.data || error.message);
   }
 
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";

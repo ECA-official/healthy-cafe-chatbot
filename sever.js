@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(express.json());
@@ -13,9 +12,6 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-
-// ตั้งค่า Gemini AI SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // -------------------------------------------------------------
 // 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (Healthy Cafe)
@@ -67,19 +63,37 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// ฟังก์ชันส่งข้อความไปหา Gemini AI (โมเดล gemini-3.6-flash)
+// ฟังก์ชันเรียก Gemini REST API โดยตรงผ่าน Axios
 async function getAIReply(userText) {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: userText,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION
-      }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("❌ ERROR: ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Environment Variables");
+      return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await axios.post(url, {
+      systemInstruction: {
+        parts: [{ text: SYSTEM_INSTRUCTION }]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userText }]
+        }
+      ]
     });
-    return response.text;
+
+    if (response.data && response.data.candidates && response.data.candidates.length > 0) {
+      return response.data.candidates[0].content.parts[0].text;
+    } else {
+      console.error("❌ Unexpected Gemini Response:", JSON.stringify(response.data));
+      return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
+    }
   } catch (error) {
-    console.error("❌ Gemini API Call Error Detail:", error.message || error);
+    console.error("❌ Gemini API Error Details:", error.response ? JSON.stringify(error.response.data) : error.message);
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 }
@@ -169,7 +183,7 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 7. คำถามอื่นๆ ส่งให้ AI (Gemini 3.6 Flash)
+  // 7. คำถามอื่นๆ ส่งให้ AI ผ่าน Gemini Direct REST API
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }

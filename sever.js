@@ -11,7 +11,10 @@ app.get('/', (req, res) => res.send('Madam Healthy Cafe Bot is running!'));
 const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// รองรับทั้งคีย์เดียวและหลายคีย์ (คั่นด้วยจุลภาค ,)
+const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
 let pageTokens = {};
 try {
@@ -42,7 +45,6 @@ const SYSTEM_INSTRUCTION = `
 3) โปรแกรม 10 วัน FIRM SET
 ฮุก: เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
 โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
-
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
 ขั้นตอนที่ 1: การแนะนำโปรแกรม
@@ -71,36 +73,43 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// ระบุชื่อโมเดลตามลำดับความสำคัญ (ยิง 3.6-flash ก่อน)
-const TARGET_MODELS = ['gemini-3.6-flash', 'gemini-1.5-flash'];
+// รายชื่อโมเดลสำรองเมื่อตัวแรกติด Quota Limit
+const CANDIDATE_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-3.6-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-8b'
+];
 
 async function getAIReply(userText) {
-  if (!GEMINI_API_KEY) {
+  if (API_KEYS.length === 0) {
     console.error("❌ GEMINI_API_KEY Missing");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
-  const cleanKey = GEMINI_API_KEY.trim();
+  for (const currentKey of API_KEYS) {
+    const cleanKey = currentKey.trim();
 
-  for (const modelName of TARGET_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
-      const payload = {
-        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-        contents: [{ role: 'user', parts: [{ text: userText }] }]
-      };
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
+        const payload = {
+          system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+          contents: [{ role: 'user', parts: [{ text: userText }] }]
+        };
 
-      const res = await axios.post(url, payload, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 10000
-      });
+        const res = await axios.post(url, payload, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000
+        });
 
-      if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        console.log(`✅ Success using model: ${modelName}`);
-        return res.data.candidates[0].content.parts[0].text;
+        if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+          console.log(`✅ Success using model: ${modelName}`);
+          return res.data.candidates[0].content.parts[0].text;
+        }
+      } catch (error) {
+        console.error(`⚠️ Model ${modelName} Error:`, error.response?.data?.error?.message || error.message);
       }
-    } catch (error) {
-      console.error(`⚠️ Model ${modelName} Error:`, error.response?.data?.error?.message || error.message);
     }
   }
 

@@ -71,14 +71,45 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
+let cachedModelName = null;
+
+// ดึงชื่อโมเดลที่ใช้ได้จริงของ API Key ตัวนี้แบบอัตโนมัติ
+async function getValidModel(apiKey) {
+  if (cachedModelName) return cachedModelName;
+
+  try {
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const res = await axios.get(listUrl, { timeout: 8000 });
+    
+    if (res.data?.models) {
+      const available = res.data.models.find(m => 
+        m.supportedGenerationMethods?.includes('generateContent') &&
+        !m.name.includes('embedding')
+      );
+      if (available) {
+        cachedModelName = available.name.replace('models/', '');
+        console.log(`✅ Auto-selected available model: ${cachedModelName}`);
+        return cachedModelName;
+      }
+    }
+  } catch (e) {
+    console.error('ListModels failed:', e.response?.data || e.message);
+  }
+
+  return 'gemini-2.0-flash';
+}
+
 async function getAIReply(userText) {
   if (!GEMINI_API_KEY) {
     console.error("❌ GEMINI_API_KEY Missing");
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
+  const cleanKey = GEMINI_API_KEY.trim();
+  const modelName = await getValidModel(cleanKey);
+
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY.trim()}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
     const payload = {
       system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents: [{ role: 'user', parts: [{ text: userText }] }]
@@ -93,7 +124,8 @@ async function getAIReply(userText) {
       return res.data.candidates[0].content.parts[0].text;
     }
   } catch (error) {
-    console.error('❌ Gemini Error:', error.response?.data || error.message);
+    console.error(`❌ Gemini Error (${modelName}):`, error.response?.data || error.message);
+    cachedModelName = null; // ค้นหาโมเดลใหม่ทันทีหากตัวเดิมมีปัญหา
   }
 
   return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";

@@ -14,7 +14,11 @@ const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// ตั้งค่า Gemini AI
+// ตรวจสอบว่าใส่ API Key แล้วหรือยัง
+if (!process.env.GEMINI_API_KEY) {
+  console.error("❌ ERROR: ยังไม่ได้ใส่ GEMINI_API_KEY ในไฟล์ .env หรือ Environment Variables!");
+}
+
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // -------------------------------------------------------------
@@ -25,7 +29,7 @@ const SYSTEM_INSTRUCTION = `
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
 
 [เกี่ยวกับร้าน]
-- เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มพื่อสุขภาพ สำหรับคนดูแลรูปร่าง ควบคุมหน้ำหนักโดยเฉพาะ
+- เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มพื่อสุขภาพ สำหรับคนดูแลรูปร่าง ควบคุมน้ำหนักโดยเฉพาะ
 - เวลาทำการ: 08:00 - 18:00 น. (เปิดทุกวัน)
 
 [เมนูเครื่องดื่มสุขภาพ]
@@ -33,15 +37,10 @@ const SYSTEM_INSTRUCTION = `
 2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
 
 [โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
-1) โปรแกรม 3 วัน WOW
-ตัวบวม น้ำหนักขึ้นง่าย? เริ่มเปลี่ยนได้ใน 3 วัน!
-เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
-2) โปรแกรม 7 วัน FIT SET
-7 วัน จุดเริ่มต้นของหุ่นที่คุณอยากมี
-โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
-3) โปรแกรม 10 วัน FIRM SET
-เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
-โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+1) โปรแกรม 3 วัน WOW: เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
+2) โปรแกรม 7 วัน FIT SET: โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
+3) โปรแกรม 10 วัน FIRM SET: โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
 ขั้นตอนที่ 1: การแนะนำโปรแกรม
@@ -84,7 +83,7 @@ async function getAIReply(userText) {
     });
     return response.text;
   } catch (error) {
-    console.error("Error in getAIReply:", error);
+    console.error("❌ Gemini API Call Error Detail:", error.message || error);
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 }
@@ -131,7 +130,7 @@ app.post('/webhook', (req, res) => {
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim() : '';
 
-  // 1. ตรวจจับการส่งสลิป
+  // 1. ตรวจจับการส่งสลิป (ส่งรูปหรือมีคำว่า สลิป/โอนแล้ว)
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดค่ะ" });
     return;
@@ -174,7 +173,7 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 7. คำถามอื่นๆ ส่งให้ AI (Gemini) ทำงานตาม SYSTEM_INSTRUCTION
+  // 7. คำถามอื่นๆ ส่งให้ AI (Gemini)
   const aiReply = await getAIReply(text);
   await callSendAPI(sender_psid, { text: aiReply });
 }
@@ -189,8 +188,8 @@ async function handlePostback(sender_psid, received_postback) {
 // -------------------------------------------------------------
 async function sendMenuImage(sender_psid) {
   const menuImages = [
-    "URL_รูปภาพที่_1_วางตรงนี้.jpg", // รูปที่ 1
-    "URL_รูปภาพที่_2_วางตรงนี้.jpg"  // รูปที่ 2
+    "URL_รูปภาพที่_1_วางตรงนี้.jpg",
+    "URL_รูปภาพที่_2_วางตรงนี้.jpg"
   ];
 
   for (const imageUrl of menuImages) {

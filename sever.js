@@ -6,7 +6,7 @@ const { GoogleGenAI } = require('@google/genai');
 const app = express();
 app.use(express.json());
 
-// 📌 หน้า Privacy Policy สำหรับนำ URL ไปแปะใน Meta Developer
+// 📌 หน้า Privacy Policy สำหรับยิงผ่าน Meta Developers
 app.get('/privacy', (req, res) => {
   res.send('<h1>นโยบายความเป็นส่วนตัว (Privacy Policy)</h1><p>เราเคารพความเป็นส่วนตัวของคุณ และไม่มีการจัดเก็บหรือเผยแพร่ข้อมูลส่วนบุคคลใดๆ</p>');
 });
@@ -16,6 +16,7 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
 // ดึง Token ของแต่ละเพจจาก PAGE_TOKENS (รูปแบบ JSON) หรือใช้ PAGE_ACCESS_TOKEN เป็นค่าสำรอง
@@ -28,10 +29,12 @@ try {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// 📌 คำสั่งคุม AI ภาษาไทยล้วน
+// -------------------------------------------------------------
+// 📌 [คลังความรู้ร้าน] Madam Healthy Cafe (ชุดเดิมเต็มทุกคำพูด)
+// -------------------------------------------------------------
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
-ตอบด้วยภาษาไทยเท่านั้น คำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
+ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
 
 [เกี่ยวกับร้าน]
 - เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มเพื่อสุขภาพ สำหรับคนดูแลรูปร่าง ควบคุมน้ำหนักโดยเฉพาะ
@@ -42,9 +45,15 @@ const SYSTEM_INSTRUCTION = `
 2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
 
 [โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
-1) โปรแกรม 3 วัน WOW: เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
-2) โปรแกรม 7 วัน FIT SET: โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
-3) โปรแกรม 10 วัน FIRM SET: โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+1) โปรแกรม 3 วัน WOW
+ตัวบวม น้ำหนักขึ้นง่าย? เริ่มเปลี่ยนได้ใน 3 วัน!
+เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
+2) โปรแกรม 7 วัน FIT SET
+7 วัน จุดเริ่มต้นของหุ่นที่คุณอยากมี
+โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
+3) โปรแกรม 10 วัน FIRM SET
+เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
+โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
 
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
@@ -74,24 +83,31 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-const FALLBACK_MODELS = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+// 📌 รายชื่อโมเดลเรียงตามสเปกรองรับโควต้าฟรีสูง
+const CANDIDATE_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro'
+];
 
 async function getAIReply(userText) {
-  for (const modelName of FALLBACK_MODELS) {
+  for (const modelName of CANDIDATE_MODELS) {
     try {
       const response = await ai.models.generateContent({
         model: modelName,
         contents: userText,
-        config: { systemInstruction: SYSTEM_INSTRUCTION }
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION
+        }
       });
       if (response && response.text) {
         return response.text;
       }
     } catch (error) {
-      console.error(`⚠️ Model ${modelName} error, trying fallback...`);
+      console.error(`⚠️ Model ${modelName} Quota Exceeded/Failed. Switching to next model...`);
     }
   }
-  return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินรีบกลับมาตอบนะคะ";
+  return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
 }
 
 // Verification Webhook
@@ -110,7 +126,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Handling incoming messages (รองรับหลายเพจ)
+// Handling incoming messages
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
@@ -141,22 +157,35 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน')) {
+  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน') || text.includes('ชำระเงิน') || text.includes('คิวอาร์') || text.includes('qr')) {
     await callSendAPI(sender_psid, { 
-      text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อสแกนจ่ายเงินให้นะคะ" 
+      text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีหรือคิวอาร์โค้ดเพื่อแสกนจ่ายเงินมาให้นะคะ" 
     }, page_id);
     return;
   }
 
   if (text.includes('รับสิทธิ์')) {
     await callSendAPI(sender_psid, { 
-      text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพค่ะ ขอทราบวันและเวลาที่สะดวกเข้ามารับบริการหน้าร้านได้เลยค่ะ" 
+      text: "ขอบคุณสำหรับการรับสิทธิ์ตรวจเช็กสุขภาพและรูปร่างค่ะ" 
     }, page_id);
+    await callSendAPI(sender_psid, { 
+      text: "ขอทราบเวลาที่คุณลูกค้าสะดวกเข้ามารับบริการทางหน้าร้านค่ะ" 
+    }, page_id);
+    return;
+  }
+
+  if (text.includes('โทร') || text.includes('ติดต่อ') || text.includes('เบอร์') || text.includes('ปรึกษา')) {
+    await sendContactButton(sender_psid, page_id);
     return;
   }
 
   if (text.includes('เมนู') || text.includes('สั่ง') || text.includes('รูป')) {
     await sendMenuImage(sender_psid, page_id);
+    return;
+  }
+
+  if (text.includes('ที่อยู่') || text.includes('พิกัด') || text.includes('แผนที่') || text.includes('ร้านอยู่ไหน')) {
+    await sendLocationButton(sender_psid, page_id);
     return;
   }
 
@@ -169,23 +198,77 @@ async function handlePostback(sender_psid, received_postback) {
 }
 
 async function sendMenuImage(sender_psid, page_id) {
-  const menuImages = ["https://i.imgur.com/your-image-1.jpg"];
+  const menuImages = [
+    "https://i.imgur.com/your-image-1.jpg"
+  ];
+
   const validImages = menuImages.filter(url => url.startsWith("http") && !url.includes("your-image"));
 
   if (validImages.length > 0) {
     for (const imageUrl of validImages) {
-      await callSendAPI(sender_psid, {
-        attachment: { type: "image", payload: { url: imageUrl, is_reusable: true } }
-      }, page_id);
+      const messageData = {
+        attachment: {
+          type: "image",
+          payload: {
+            url: imageUrl,
+            is_reusable: true
+          }
+        }
+      };
+      await callSendAPI(sender_psid, messageData, page_id);
     }
   } else {
-    const textMenu = `🍹 เมนูแนะนำ Healthy Cafe 🍹\n\n1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล\n2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น กระตุ้นการเผาผลาญ\n\nสอบถามโปรแกรมลดน้ำหนักเพิ่มเติม แจ้งแอดมินได้เลยนะคะ ✨`;
+    const textMenu = `🍹 เมนูแนะนำ Healthy Cafe 🍹\n\n1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล เหมาะสำหรับคุมน้ำหนัก/เติมโปรตีนหลังออกกำลังกาย\n2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม\n\nสนใจสอบถามโปรแกรมลดน้ำหนักเพิ่มเติม แจ้งแอดมินได้เลยนะคะ ✨`;
     await callSendAPI(sender_psid, { text: textMenu }, page_id);
   }
 }
 
+async function sendLocationButton(sender_psid, page_id) {
+  const targetPageId = page_id || '';
+  const pageUrl = targetPageId ? `https://www.facebook.com/${targetPageId}` : "https://www.facebook.com";
+  const messageData = {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: "คุณลูกค้าสามารถคลิกดูพิกัดและแผนที่ร้านบนหน้าเพจของเราได้เลยค่ะ 📍",
+        buttons: [
+          {
+            type: "web_url",
+            url: pageUrl,
+            title: "ดูพิกัดบนหน้าเพจ"
+          }
+        ]
+      }
+    }
+  };
+  await callSendAPI(sender_psid, messageData, page_id);
+}
+
+async function sendContactButton(sender_psid, page_id) {
+  const targetPageId = page_id || '';
+  const pageUrl = targetPageId ? `https://www.facebook.com/${targetPageId}/about` : "https://www.facebook.com";
+  const messageData = {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: "หากมีข้อสอบถามหรือต้องการปรึกษาเพิ่มเติม สามารถโทรติดต่อผู้เชี่ยวชาญได้เลยนะคะ ยินดีให้บริการค่ะ 📞",
+        buttons: [
+          {
+            type: "web_url",
+            url: pageUrl,
+            title: "ติดต่อผู้เชี่ยวชาญ"
+          }
+        ]
+      }
+    }
+  };
+  await callSendAPI(sender_psid, messageData, page_id);
+}
+
 async function callSendAPI(sender_psid, response, page_id) {
-  const token = pageTokens[page_id] || process.env.PAGE_ACCESS_TOKEN;
+  const token = pageTokens[page_id] || PAGE_ACCESS_TOKEN;
   const request_body = { recipient: { id: sender_psid }, message: response };
 
   try {

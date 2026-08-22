@@ -198,10 +198,10 @@ async function handleMessage(sender_psid, received_message, page_id) {
     await callSendAPI(sender_psid, { text: "รับยอดเรียบร้อยค่ะ ขอบคุณมากนะคะ ✨" }, page_id);
     return;
   }
-
-  // 2. ดักถามโอนเงิน/เลขบัญชี
+  
+  // 2. ดักถามโอนเงิน/เลขบัญชี/ชำระเงิน -> ส่งข้อความ + รูป QR Code
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('ชำระเงิน') || text.includes('จ่ายเงิน')) {
-    await callSendAPI(sender_psid, { text: "รอสักครู่นะคะ เดี๋ยวผู้เชี่ยวชาญจะส่งรายละเอียดและเลขบัญชีให้ค่ะ ✨" }, page_id);
+    await sendPaymentInfo(sender_psid, page_id); // 
     return;
   }
 

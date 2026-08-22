@@ -1,7 +1,7 @@
 {
   "name": "madam-healthy-cafe-bot",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "sever.js",
   "scripts": {
     "start": "node server.js"
   },

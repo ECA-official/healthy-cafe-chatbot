@@ -32,6 +32,36 @@ try {
   console.error('Failed to parse PAGE_URLS');
 }
 
+// =========================================================================
+// 💳 รายละเอียดบัญชีชำระเงิน และ ชื่อไฟล์รูป QR Code หน้าแรก GitHub
+// =========================================================================
+const PAYMENT_DETAILS = {
+  "862654046938799": {
+    accountName: "น.ส.ทิวาพร อิตประดิษฐ",
+    bankName: "ธนาคารกสิกรไทย (KBANK)",
+    accountNumber: "025-1-53577-9",
+    qrImage: "Qrmadam.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+  },
+  "825790847294552": {
+    accountName: "น.ส.อินทิรา ณ พัทลุง",
+    bankName: "พร้อมเพย์",
+    accountNumber: "081-5659698",
+    qrImage: "Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+  },
+   "1295046180355252": {
+    accountName: "นาย วุฒิชัย แก้วนิล",
+    bankName: "ธนาคารออมสิน (GSB)",
+    accountNumber: "099-7-01253-0",
+    qrImage: "Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+  }    
+  // เพิ่มเพจอื่นๆ ตรงนี้ได้เลยครับ:
+  // ,
+  // "862654046938799": {
+  //   accountName: "บริษัท มาดาม เฮลท์ตี้ จำกัด (สาขา 2)",
+  //   bankName: "ธนาคารไทยพาณิชย์ (SCB)",
+  //   accountNumber: "987-6-54321-0",
+  //   qrImage: "862654046938799.png"
+  // }
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
@@ -221,6 +251,37 @@ async function handleMessage(sender_psid, received_message, page_id) {
   // 7. ข้อความอื่นๆ ส่งให้ Gemini AI ประมวลผล
   const aiReply = await getAIReply(received_message.text);
   await callSendAPI(sender_psid, { text: aiReply }, page_id);
+}
+
+// =========================================================================
+// 🛠 ฟังก์ชันสำหรับส่งรายละเอียดบัญชี + รูปภาพ QR Code จากหน้าแรก GitHub
+// =========================================================================
+async function sendPaymentInfo(sender_psid, page_id) {
+  // ดึงข้อมูลตาม ID เพจ หรือดึงเพจแรกมาใช้อัตโนมัติกรณีหา ID ไม่เจอ
+  const payment = PAYMENT_DETAILS[page_id] || Object.values(PAYMENT_DETAILS)[0];
+
+  if (payment) {
+    // 1. ส่งข้อความแจ้งเลขบัญชีและชื่อบัญชี
+    const textMsg = `รายละเอียดการชำระเงินค่ะ ✨\n\n📌 ธนาคาร: ${payment.bankName}\n📌 ชื่อบัญชี: ${payment.accountName}\n📌 เลขที่บัญชี: ${payment.accountNumber}\n\nโอนเงินแล้วแจ้งสลิปในแชทนี้ได้เลยนะคะ ❤️`;
+    await callSendAPI(sender_psid, { text: textMsg }, page_id);
+
+    // 2. ส่งรูปภาพ QR Code
+    if (payment.qrImage) {
+      const SERVER_URL = process.env.SERVER_URL || 'https://your-bot-domain.onrender.com';
+      const qrImageUrl = `${SERVER_URL}/${payment.qrImage}`;
+
+      const imagePayload = {
+        attachment: {
+          type: "image",
+          payload: {
+            url: qrImageUrl,
+            is_reusable: true
+          }
+        }
+      };
+      await callSendAPI(sender_psid, imagePayload, page_id);
+    }
+  }
 }
 
 async function callSendAPI(sender_psid, response, page_id) {

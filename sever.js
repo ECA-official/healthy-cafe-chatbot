@@ -44,14 +44,12 @@ const PAYMENT_DETAILS = {
   },
   "825790847294552": {
     accountName: "น.ส.อินทิรา ณ พัทลุง",
-    bankName: "พร้อมเพย์",
-    accountNumber: "081-5659698",
+    พร้อมเพย์: "081-5659698",
     qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   },
    "1295046180355252": {
     accountName: "นาย วุฒิชัย แก้วนิล",
-    bankName: "พร้อมเพย์",
-    accountNumber: "099-7012530",
+    พร้อมเพย์: "099-7012530",
     qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   }
 };    

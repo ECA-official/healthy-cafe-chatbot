@@ -12,6 +12,7 @@ app.get('/', (req, res) => res.send('Madam Healthy Cafe Bot is running!'));
 const PORT = process.env.PORT || 3000;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
 const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -32,6 +33,50 @@ try {
   console.error('Failed to parse PAGE_URLS');
 }
 
+// 🟢 [วางตรงนี้ได้เลยครับ]
+// =========================================================================
+// 📲 1. จับคู่ Page ID กับ Telegram Chat ID ของแต่ละกลุ่ม
+// =========================================================================
+const TELEGRAM_CHAT_IDS = {
+  "862654046938799": "", // Chat ID กลุ่มเพจหลัก
+  "825790847294552": "", // Chat ID กลุ่มเพจสาขา 2
+  "1295046180355252": "-5408086473" // Chat ID กลุ่มเพจสาขา 3
+};
+
+// =========================================================================
+// 🏷️ ตั้งชื่อเพจให้จำง่าย
+// =========================================================================
+const PAGE_NAMES = {
+  "862654046938799": "Healthy Cafe - Madam",
+  "825790847294552": "Healthy Cafe - Jam",
+  "1295046180355252": "Healthy Cafe - Jackport"
+};
+
+// =========================================================================
+// 🔔 2. ฟังก์ชันส่งแจ้งเตือนเข้า Telegram ตาม Page ID
+// =========================================================================
+async function notifyAdmin(messageText, page_id) {
+  if (!TELEGRAM_BOT_TOKEN) return;
+
+  const chatId = TELEGRAM_CHAT_IDS[page_id];
+  if (!chatId) return;
+
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: chatId,
+      text: messageText,
+      parse_mode: 'HTML'
+    });
+    console.log(`✅ ส่งแจ้งเตือนไปยังกลุ่ม Telegram ของเพจ ${page_id} สำเร็จ`);
+  } catch (error) {
+    console.error("❌ แจ้งเตือนแอดมินล้มเหลว:", error.message);
+  }
+}
+
+// =========================================================================
+// 💳 รายละเอียดบัญชีชำระเงิน (โค้ดเดิมของคุณ)
+// =========================================================================
+const PAYMENT_DETAILS = { ... }
 // =========================================================================
 // 💳 รายละเอียดบัญชีชำระเงิน และ ชื่อไฟล์รูป QR Code หน้าแรก GitHub
 // =========================================================================
@@ -201,6 +246,17 @@ async function handleMessage(sender_psid, received_message, page_id) {
   // 1. ดักสลิป/แจ้งโอน
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดเรียบร้อยค่ะ ขอบคุณมากนะคะ ✨" }, page_id);
+    
+    const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
+    const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
+
+    const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
+    const alertMsg = `🚨 <b>[แจ้งเตือนยอดโอน/สลิปใหม่]</b>\n` +
+                     `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
+                     `💬 <b>ข้อความ:</b> ${received_message.text || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
+                     `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
+                     
+    await notifyAdmin(alertMsg, page_id);
     return;
   }
   
@@ -208,6 +264,20 @@ async function handleMessage(sender_psid, received_message, page_id) {
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('ชำระเงิน') || text.includes('จ่ายเงิน')) {
     await sendPaymentInfo(sender_psid, page_id); // 
     return;
+  }
+
+  // 🟢 [วางทับข้อ 3 เดิม] 🔴 ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
+  if (text.includes('หน้าร้าน') || text.includes('มารับเอง') || text.includes('รับหน้าร้าน') || text.includes('เข้ามารับ')) {
+    const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
+    const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
+
+    const alertMsg = `📍 <b>[แจ้งเตือนลูกค้านัดรับหน้าร้าน]</b>\n` +
+                     `🏪 <b>เพจ:</b> ${pageName}\n` +
+                     `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
+                     `💬 <b>ข้อความ:</b> "${received_message.text}"\n\n` +
+                     `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้าบน Facebook</a>`;
+                     
+    await notifyAdmin(alertMsg);
   }
 
   // 3. ดักกรณีลูกค้าพิมพ์ "ไม่รับสิทธิ์"

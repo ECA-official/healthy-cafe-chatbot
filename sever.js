@@ -40,19 +40,19 @@ const PAYMENT_DETAILS = {
     accountName: "น.ส.ทิวาพร อิตประดิษฐ",
     bankName: "ธนาคารกสิกรไทย (KBANK)",
     accountNumber: "025-1-53577-9",
-    qrImage: "https://raw.githubusercontent.com/prcaraudio-dev/healthy-cafe-chatbot/main/Qrmadam.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrmadam.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   },
   "825790847294552": {
     accountName: "น.ส.อินทิรา ณ พัทลุง",
     bankName: "พร้อมเพย์",
     accountNumber: "081-5659698",
-    qrImage: "https://raw.githubusercontent.com/prcaraudio-dev/healthy-cafe-chatbot/main/Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   },
    "1295046180355252": {
     accountName: "นาย วุฒิชัย แก้วนิล",
     bankName: "พร้อมเพย์",
     accountNumber: "099-7012530",
-    qrImage: "https://raw.githubusercontent.com/prcaraudio-dev/healthy-cafe-chatbot/main/Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   }
 };    
   // เพิ่มเพจอื่นๆ ตรงนี้ได้เลยครับ:

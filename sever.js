@@ -30,20 +30,32 @@ const SYSTEM_INSTRUCTION = `
 - เราคือ คาเฟ่สุขภาพ (Healthy Cafe) เน้นเครื่องดื่มเพื่อสุขภาพ สำหรับคนดูแลรูปร่าง ควบคุมน้ำหนักโดยเฉพาะ
 - เวลาทำการ: 08:00 - 18:00 น. (เปิดทุกวัน)
 
-[เมนูเครื่องดื่มสุขภาพ]
-1. สมูทตี้โปรตีนปั่น: โปรตีนสูง อิ่มนาน ไม่เติมน้ำตาล เหมาะสำหรับผู้ที่ต้องการคุมน้ำหนัก รักษารูปร่าง หรือเติมโปรตีนหลังออกกำลังกาย
-2. ชาสลายไขมัน: ชาเบิร์นสกัดเข้มข้น ช่วยกระตุ้นระบบเผาผลาญ ลดไขมันสะสม ดื่มแล้วสดชื่นตลอดวัน
+[เมนูเครื่องดื่มสุขภาพ & รสชาติยอดฮิต]
+1. สมูทตี้โปรตีนปั่น
+2. ชาสลายไขมัน
+รสชาติยอดฮิต:
+- กลูแคนสกาย
+- สตอเบอร์รี่ โยเกิร์ต
+- บลูเบอร์รี่ โยเกิร์ต
+- ดับเบิ้ล ช็อกโกแลต
+- โปรตีน มอคค่า
+- โปรตีน เพียวมัทฉะ
+- คอลลาเจน อเมริกาโน่
+- คอลลาเจน บิวตี้รีเฟรช
 
 [โปรแกรมลดน้ำหนัก & คุมรูปร่าง]
 1) โปรแกรม 3 วัน WOW
 ฮุก: ตัวบวม น้ำหนักขึ้นง่าย? เริ่มเปลี่ยนได้ใน 3 วัน!
 เซตเริ่มต้นสำหรับคนอยากดูแลรูปร่าง ช่วยปรับพฤติกรรมการกินและลดความรู้สึกบวมน้ำ ให้ร่างกายกลับมาสดชื่นอีกครั้ง
+
 2) โปรแกรม 7 วัน FIT SET
 ฮุก: 7 วัน จุดเริ่มต้นของหุ่นที่คุณอยากมี
 โปรแกรมยอดฮิต เน้นปรับการกิน ควบคุมรูปร่าง และสร้างวินัยให้เห็นความเปลี่ยนแปลงแบบจับต้องได้
+
 3) โปรแกรม 10 วัน FIRM SET
 ฮุก: เปลี่ยนหุ่นให้เฟิร์ม แบบไม่ต้องอดอาหาร
 โปรแกรมเข้มข้น 10 วัน สำหรับคนที่อยากลดน้ำหนักอย่างยั่งยืน พร้อมมีแนวทางดูแลต่อเนื่องเพื่อรักษาผลลัพธ์
+
 [ลำดับขั้นตอนการคุยอย่างเคร่งครัด (STRICT WORKFLOW)]
 
 ขั้นตอนที่ 1: การแนะนำโปรแกรม
@@ -72,10 +84,11 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// อัปเดตใช้เฉพาะโมเดลที่ Google รองรับในปัจจุบัน
+// รายชื่อโมเดลสำรอง ลำดับตามความพร้อมใช้งานล่าสุด
 const CANDIDATE_MODELS = [
   'gemini-3.6-flash',
-  'gemini-3.5-flash-lite'
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash'
 ];
 
 async function getAIReply(userText) {
@@ -84,6 +97,7 @@ async function getAIReply(userText) {
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
+  // วนลูปสลับทั้ง API Key และ Model อัตโนมัติเมื่อติด Rate Limit (429)
   for (const currentKey of API_KEYS) {
     const cleanKey = currentKey.trim();
 
@@ -105,7 +119,9 @@ async function getAIReply(userText) {
           return res.data.candidates[0].content.parts[0].text;
         }
       } catch (error) {
-        console.error(`⚠️ Model ${modelName} Error:`, error.response?.data?.error?.message || error.message);
+        const status = error.response?.status;
+        const errMsg = error.response?.data?.error?.message || error.message;
+        console.error(`⚠️ Model ${modelName} Error (${status}):`, errMsg);
       }
     }
   }
@@ -144,24 +160,57 @@ app.post('/webhook', (req, res) => {
 });
 
 async function handleMessage(sender_psid, received_message, page_id) {
-  const text = received_message.text ? received_message.text.trim() : '';
+  const text = received_message.text ? received_message.text.trim().toLowerCase() : '';
 
+  // 1. ดักสลิป/แจ้งโอน
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดค่ะ" }, page_id);
     return;
   }
 
+  // 2. ดักถามโอนเงิน/เลขบัญชี
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('จ่ายเงิน')) {
     await callSendAPI(sender_psid, { text: "รอสักครู่นะคะ ผู้เชี่ยวชาญจะส่งเลขบัญชีให้ค่ะ" }, page_id);
     return;
   }
 
+  // 3. ดักคำว่ารับสิทธิ์
   if (text.includes('รับสิทธิ์')) {
     await callSendAPI(sender_psid, { text: "ขอบคุณสำหรับการรับสิทธิ์ค่ะ ขอทราบเวลาที่สะดวกเข้ามาหน้าร้านนะคะ" }, page_id);
     return;
   }
 
-  const aiReply = await getAIReply(text);
+  // 4. ดักถามพิกัด / ร้านอยู่ไหน -> ส่งปุ่มกดไปหน้าเพจ
+  if (text.includes('พิกัด') || text.includes('ร้านอยู่ไหน') || text.includes('แผนที่') || text.includes('อยู่ที่ไหน') || text.includes('location')) {
+    const buttonPayload = {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: "สามารถดูพิกัดและรายละเอียดการเดินทางได้ที่หน้าเพจของเราได้เลยนะคะ ✨",
+          buttons: [
+            {
+              type: "web_url",
+              url: "https://www.facebook.com/profile.php", // สามารถเปลี่ยนเป็น URL เพจของคุณได้
+              title: "ดูรายละเอียดหน้าเพจ"
+            }
+          ]
+        }
+      }
+    };
+    await callSendAPI(sender_psid, buttonPayload, page_id);
+    return;
+  }
+
+  // 5. ดักถามรสชาติเมนู -> ตอบรายการเมนูยอดฮิตทันที
+  if (text.includes('รสชาติ') || text.includes('มีรสอะไร') || text.includes('รสอะไรบ้าง') || text.includes('รสไหน')) {
+    const flavorText = "ขอแนะนำเมนูยอดฮิตจากทางร้านค่ะ\n-กลูแคนสกาย\n-สตอเบอร์รี่ โยเกิร์ต\n-บลูเบอร์รี่ โยเกิร์ต\n-ดับเบิ้ล ช็อกโกแลต\n-โปรตีน มอคค่า\n-โปรตีน เพียวมัทฉะ\n-คอลลาเจน อเมริกาโน่\n-คอลลาเจน บิวตี้รีเฟรช ค่าาา";
+    await callSendAPI(sender_psid, { text: flavorText }, page_id);
+    return;
+  }
+
+  // 6. ข้อความอื่นๆ ส่งให้ Gemini AI ประมวลผล
+  const aiReply = await getAIReply(received_message.text);
   await callSendAPI(sender_psid, { text: aiReply }, page_id);
 }
 

@@ -74,10 +74,6 @@ async function notifyAdmin(messageText, page_id) {
 }
 
 // =========================================================================
-// 💳 รายละเอียดบัญชีชำระเงิน (โค้ดเดิมของคุณ)
-// =========================================================================
-const PAYMENT_DETAILS = { ... }
-// =========================================================================
 // 💳 รายละเอียดบัญชีชำระเงิน และ ชื่อไฟล์รูป QR Code หน้าแรก GitHub
 // =========================================================================
 const PAYMENT_DETAILS = {
@@ -243,15 +239,15 @@ app.post('/webhook', (req, res) => {
 async function handleMessage(sender_psid, received_message, page_id) {
   const text = received_message.text ? received_message.text.trim().toLowerCase() : '';
 
-  // 1. ดักสลิป/แจ้งโอน
+  // 1. ดักสลิป/รูปภาพ/แจ้งโอน
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     await callSendAPI(sender_psid, { text: "รับยอดเรียบร้อยค่ะ ขอบคุณมากนะคะ ✨" }, page_id);
-    
+
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
 
-    const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
     const alertMsg = `🚨 <b>[แจ้งเตือนยอดโอน/สลิปใหม่]</b>\n` +
+                     `🏪 <b>เพจ:</b> ${pageName}\n` +
                      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
                      `💬 <b>ข้อความ:</b> ${received_message.text || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
                      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
@@ -277,7 +273,7 @@ async function handleMessage(sender_psid, received_message, page_id) {
                      `💬 <b>ข้อความ:</b> "${received_message.text}"\n\n` +
                      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้าบน Facebook</a>`;
                      
-    await notifyAdmin(alertMsg);
+    await notifyAdmin(alertMsg, page_id);
   }
 
   // 3. ดักกรณีลูกค้าพิมพ์ "ไม่รับสิทธิ์"

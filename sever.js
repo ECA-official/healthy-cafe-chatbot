@@ -40,19 +40,19 @@ const PAYMENT_DETAILS = {
     accountName: "น.ส.ทิวาพร อิตประดิษฐ",
     bankName: "ธนาคารกสิกรไทย (KBANK)",
     accountNumber: "025-1-53577-9",
-    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrmadam.jpg?raw=true" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrmadam.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   },
   "825790847294552": {
     accountName: "น.ส.อินทิรา ณ พัทลุง",
     bankName: "พร้อมเพย์",
     accountNumber: "081-5659698",
-    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrann.jpg?raw=true" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   },
    "1295046180355252": {
     accountName: "นาย วุฒิชัย แก้วนิล",
-    bankName: "ธนาคารออมสิน (GSB)",
+    bankName: "พร้อมเพย์",
     accountNumber: "099-7-01253-0",
-    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrjackport.jpg?raw=true" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://github.com/prcaraudio-dev/healthy-cafe-chatbot/blob/main/Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
   }
 };    
   // เพิ่มเพจอื่นๆ ตรงนี้ได้เลยครับ:
@@ -257,7 +257,6 @@ async function handleMessage(sender_psid, received_message, page_id) {
 // 🛠 ฟังก์ชันสำหรับส่งรายละเอียดบัญชี + รูปภาพ QR Code จากหน้าแรก GitHub
 // =========================================================================
 async function sendPaymentInfo(sender_psid, page_id) {
-  // ดึงข้อมูลตาม ID เพจ หรือดึงเพจแรกมาใช้อัตโนมัติกรณีหา ID ไม่เจอ
   const payment = PAYMENT_DETAILS[page_id] || Object.values(PAYMENT_DETAILS)[0];
 
   if (payment) {
@@ -265,16 +264,13 @@ async function sendPaymentInfo(sender_psid, page_id) {
     const textMsg = `รายละเอียดการชำระเงินค่ะ ✨\n\n📌 ธนาคาร: ${payment.bankName}\n📌 ชื่อบัญชี: ${payment.accountName}\n📌 เลขที่บัญชี: ${payment.accountNumber}\n\nโอนเงินแล้วแจ้งสลิปในแชทนี้ได้เลยนะคะ ❤️`;
     await callSendAPI(sender_psid, { text: textMsg }, page_id);
 
-    // 2. ส่งรูปภาพ QR Code
+    // 2. ส่งรูปภาพ QR Code (ใช้ URL ตรงจาก payment.qrImage)
     if (payment.qrImage) {
-      const SERVER_URL = process.env.SERVER_URL || 'https://your-bot-domain.onrender.com';
-      const qrImageUrl = `${SERVER_URL}/${payment.qrImage}`;
-
       const imagePayload = {
         attachment: {
           type: "image",
           payload: {
-            url: qrImageUrl,
+            url: payment.qrImage, // ✅ ส่ง URL รูปตรงไปให้ Facebook ได้เลย
             is_reusable: true
           }
         }

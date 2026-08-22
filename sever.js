@@ -15,11 +15,20 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const rawKeys = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
 const API_KEYS = rawKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
+// รองรับ Page Token หลายเพจ
 let pageTokens = {};
 try {
   pageTokens = JSON.parse(process.env.PAGE_TOKENS || '{}');
 } catch (e) {
   console.error('Failed to parse PAGE_TOKENS');
+}
+
+// รองรับ URL หน้าเพจเฉพาะของแต่ละเพจ (ถ้ามี)
+let pageUrls = {};
+try {
+  pageUrls = JSON.parse(process.env.PAGE_URLS || '{}');
+} catch (e) {
+  console.error('Failed to parse PAGE_URLS');
 }
 
 const SYSTEM_INSTRUCTION = `
@@ -84,7 +93,6 @@ const SYSTEM_INSTRUCTION = `
 2. เรื่องการเงิน: ห้ามแจก/สุ่มเลขบัญชี ให้แจ้งว่ารอสักครู่ ผู้เชี่ยวชาญจะส่งให้
 `;
 
-// รายชื่อโมเดลสำรอง ลำดับตามความพร้อมใช้งานล่าสุด
 const CANDIDATE_MODELS = [
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
@@ -97,7 +105,6 @@ async function getAIReply(userText) {
     return "ขออภัยค่ะ ขณะนี้ระบบขัดข้องชั่วคราว เดี๋ยวผู้เชี่ยวชาญจะรีบกลับมาต่อนะคะ";
   }
 
-  // วนลูปสลับทั้ง API Key และ Model อัตโนมัติเมื่อติด Rate Limit (429)
   for (const currentKey of API_KEYS) {
     const cleanKey = currentKey.trim();
 
@@ -180,18 +187,21 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 4. ดักถามพิกัด / ร้านอยู่ไหน -> ส่งปุ่มกดไปหน้าเพจ
-  if (text.includes('พิกัด') || text.includes('ร้านอยู่ไหน') || text.includes('แผนที่') || text.includes('อยู่ที่ไหน') || text.includes('location')) {
+  // 4. ดักถามพิกัด / ร้านอยู่ไหน / ช่องทางติดต่อ -> ส่งปุ่มตรงไปยังหน้าเพจนั้นๆ
+  if (text.includes('พิกัด') || text.includes('ร้านอยู่ไหน') || text.includes('แผนที่') || text.includes('อยู่ที่ไหน') || text.includes('location') || text.includes('ติดต่อ') || text.includes('เบอร์')) {
+    // ถ้าตั้งค่า PAGE_URLS ไว้จะใช้ตามนั้น ถ้าไม่มีจะสร้างลิงก์ไปยังหน้าเพจจาก page_id ตรงๆ
+    const targetUrl = pageUrls[page_id] || `https://www.facebook.com/${page_id}`;
+
     const buttonPayload = {
       attachment: {
         type: "template",
         payload: {
           template_type: "button",
-          text: "สามารถดูพิกัดและรายละเอียดการเดินทางได้ที่หน้าเพจของเราได้เลยนะคะ ✨",
+          text: "สามารถดูพิกัดและรายละเอียดการเดินทาง/ติดต่อเพิ่มเติมได้ที่หน้าเพจของเราได้เลยนะคะ ✨",
           buttons: [
             {
               type: "web_url",
-              url: "https://www.facebook.com/profile.php", // สามารถเปลี่ยนเป็น URL เพจของคุณได้
+              url: targetUrl,
               title: "ดูรายละเอียดหน้าเพจ"
             }
           ]

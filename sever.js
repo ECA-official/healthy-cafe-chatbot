@@ -53,7 +53,7 @@ const PAYMENT_DETAILS = {
     bankName: "ธนาคารออมสิน (GSB)",
     accountNumber: "099-7-01253-0",
     qrImage: "Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
-  }    
+  };    
   // เพิ่มเพจอื่นๆ ตรงนี้ได้เลยครับ:
   // ,
   // "862654046938799": {

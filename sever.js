@@ -4,6 +4,7 @@ const axios = require('axios');
 
 const app = express();
 app.use(express.json());
+app.use(express.static(__dirname));
 
 app.get('/privacy', (req, res) => res.send('<h1>Privacy Policy</h1>'));
 app.get('/', (req, res) => res.send('Madam Healthy Cafe Bot is running!'));

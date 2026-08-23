@@ -33,13 +33,12 @@ try {
   console.error('Failed to parse PAGE_URLS');
 }
 
-// 🟢 [วางตรงนี้ได้เลยครับ]
 // =========================================================================
 // 📲 1. จับคู่ Page ID กับ Telegram Chat ID ของแต่ละกลุ่ม
 // =========================================================================
 const TELEGRAM_CHAT_IDS = {
-  "862654046938799": "", // Chat ID กลุ่มเพจหลัก
-  "825790847294552": "", // Chat ID กลุ่มเพจสาขา 2
+  "862654046938799": "", // Chat ID กลุ่มเพจหลัก (อย่าลืมใส่เลขติดลบ)
+  "825790847294552": "", // Chat ID กลุ่มเพจสาขา 2 (อย่าลืมใส่เลขติดลบ)
   "1295046180355252": "-5408086473" // Chat ID กลุ่มเพจสาขา 3
 };
 
@@ -56,10 +55,16 @@ const PAGE_NAMES = {
 // 🔔 2. ฟังก์ชันส่งแจ้งเตือนเข้า Telegram ตาม Page ID
 // =========================================================================
 async function notifyAdmin(messageText, page_id) {
-  if (!TELEGRAM_BOT_TOKEN) return;
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.warn("⚠️ ไม่พบ TELEGRAM_BOT_TOKEN ในระบบ");
+    return;
+  }
 
   const chatId = TELEGRAM_CHAT_IDS[page_id];
-  if (!chatId) return;
+  if (!chatId) {
+    console.warn(`⚠️ ไม่พบ Chat ID สำหรับเพจ ${page_id}`);
+    return;
+  }
 
   try {
     await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -69,41 +74,34 @@ async function notifyAdmin(messageText, page_id) {
     });
     console.log(`✅ ส่งแจ้งเตือนไปยังกลุ่ม Telegram ของเพจ ${page_id} สำเร็จ`);
   } catch (error) {
-    console.error("❌ แจ้งเตือนแอดมินล้มเหลว:", error.message);
+    console.error("❌ แจ้งเตือนแอดมินล้มเหลว:", error.response?.data || error.message);
   }
 }
 
 // =========================================================================
-// 💳 รายละเอียดบัญชีชำระเงิน และ ชื่อไฟล์รูป QR Code หน้าแรก GitHub
+// 💳 รายละเอียดบัญชีชำระเงิน และ รูปภาพ QR Code
 // =========================================================================
 const PAYMENT_DETAILS = {
   "862654046938799": {
     accountName: "น.ส.ทิวาพร อิตประดิษฐ",
     bankName: "ธนาคารกสิกรไทย (KBANK)",
     accountNumber: "025-1-53577-9",
-    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrmadam.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrmadam.jpg"
   },
   "825790847294552": {
     accountName: "น.ส.อินทิรา ณ พัทลุง",
     bankName: "พร้อมเพย์",
     accountNumber: "081-5659698",
-    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrann.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrann.jpg"
   },
-   "1295046180355252": {
+  "1295046180355252": {
     accountName: "นาย วุฒิชัย แก้วนิล",
     bankName: "พร้อมเพย์",
     accountNumber: "099-7012530",
-    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrjackport.jpg" // ชื่อไฟล์รูปที่วางหน้าแรกคู่กับ sever.js
+    qrImage: "https://healthy-cafe-chatbot.onrender.com/Qrjackport.jpg"
   }
-};    
-  // เพิ่มเพจอื่นๆ ตรงนี้ได้เลยครับ:
-  // ,
-  // "862654046938799": {
-  //   accountName: "บริษัท มาดาม เฮลท์ตี้ จำกัด (สาขา 2)",
-  //   bankName: "ธนาคารไทยพาณิชย์ (SCB)",
-  //   accountNumber: "987-6-54321-0",
-  //   qrImage: "862654046938799.png"
-  // }
+};
+
 const SYSTEM_INSTRUCTION = `
 คุณคือแอดมิน AI ตอบแชทลูกค้าของเพจ "Healthy Cafe" คาเฟ่สุขภาพเพื่อคนรักรูปร่างและสุขภาพ
 ตอบด้วยคำสุภาพ น่ารัก เป็นกันเอง มีหางเสียง (ค่ะ/นะคะ) สั้นกระชับ ให้ข้อมูลแม่นยำและใส่ใจสุขภาพลูกค้า
@@ -236,8 +234,19 @@ app.post('/webhook', (req, res) => {
   }
 });
 
+// ฟังก์ชันแปลงข้อความป้องกัน Telegram HTML Syntax Error
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 async function handleMessage(sender_psid, received_message, page_id) {
-  const text = received_message.text ? received_message.text.trim().toLowerCase() : '';
+  const rawText = received_message.text || '';
+  const text = rawText.trim().toLowerCase();
+  const safeText = escapeHtml(rawText);
 
   // 1. ดักสลิป/รูปภาพ/แจ้งโอน
   if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
@@ -249,7 +258,7 @@ async function handleMessage(sender_psid, received_message, page_id) {
     const alertMsg = `🚨 <b>[แจ้งเตือนยอดโอน/สลิปใหม่]</b>\n` +
                      `🏪 <b>เพจ:</b> ${pageName}\n` +
                      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
-                     `💬 <b>ข้อความ:</b> ${received_message.text || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
+                     `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
                      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
                      
     await notifyAdmin(alertMsg, page_id);
@@ -258,11 +267,11 @@ async function handleMessage(sender_psid, received_message, page_id) {
   
   // 2. ดักถามโอนเงิน/เลขบัญชี/ชำระเงิน -> ส่งข้อความ + รูป QR Code
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('ชำระเงิน') || text.includes('จ่ายเงิน')) {
-    await sendPaymentInfo(sender_psid, page_id); // 
+    await sendPaymentInfo(sender_psid, page_id);
     return;
   }
 
-  // 🟢 [วางทับข้อ 3 เดิม] 🔴 ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
+  // 3. ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
   if (text.includes('หน้าร้าน') || text.includes('มารับเอง') || text.includes('รับหน้าร้าน') || text.includes('เข้ามารับ')) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
@@ -270,25 +279,26 @@ async function handleMessage(sender_psid, received_message, page_id) {
     const alertMsg = `📍 <b>[แจ้งเตือนลูกค้านัดรับหน้าร้าน]</b>\n` +
                      `🏪 <b>เพจ:</b> ${pageName}\n` +
                      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
-                     `💬 <b>ข้อความ:</b> "${received_message.text}"\n\n` +
+                     `💬 <b>ข้อความ:</b> "${safeText}"\n\n` +
                      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้าบน Facebook</a>`;
                      
     await notifyAdmin(alertMsg, page_id);
+    return;
   }
 
-  // 3. ดักกรณีลูกค้าพิมพ์ "ไม่รับสิทธิ์"
+  // 4. ดักกรณีลูกค้าพิมพ์ "ไม่รับสิทธิ์"
   if (text.includes('ไม่รับสิทธิ์')) {
     await callSendAPI(sender_psid, { text: "รับทราบค่ะคุณลูกค้า ✨ เดี๋ยวแอดมินพาเข้าสู่ขั้นตอนการชำระเงินและเตรียมจัดส่งให้นะคะ รอสักครู่ค่ะ" }, page_id);
     return;
   }
 
-  // 4. ดักกรณีลูกค้าพิมพ์ "รับสิทธิ์"
+  // 5. ดักกรณีลูกค้าพิมพ์ "รับสิทธิ์"
   if (text.includes('รับสิทธิ์')) {
     await callSendAPI(sender_psid, { text: "ขอบคุณสำหรับการรับสิทธิ์ค่ะ ✨ ขอทราบวันและเวลาที่สะดวกเข้ามาหน้าร้านนะคะ" }, page_id);
     return;
   }
 
-  // 5. ดักถามพิกัด / ร้านอยู่ไหน / ช่องทางติดต่อ
+  // 6. ดักถามพิกัด / ร้านอยู่ไหน / ช่องทางติดต่อ
   if (text.includes('พิกัด') || text.includes('ร้านอยู่ไหน') || text.includes('แผนที่') || text.includes('อยู่ที่ไหน') || text.includes('location') || text.includes('ติดต่อ') || text.includes('เบอร์')) {
     const targetUrl = pageUrls[page_id] || `https://www.facebook.com/${page_id}`;
 
@@ -312,14 +322,14 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // 6. ดักถามรสชาติเมนู
+  // 7. ดักถามรสชาติเมนู
   if (text.includes('รสชาติ') || text.includes('มีรสอะไร') || text.includes('รสอะไรบ้าง') || text.includes('รสไหน')) {
-    const flavorText = "ขอแนะนำเมนูยอดฮิตจากทางร้านค่ะ\n-กลูแคนสกาย\n-สตอเบอร์รี่ โยเกิร์ต\n-บลูเบอร์รี่ โยเกิร์ต\n-ดับเบิ้ล ช็อกโกแลต\n-โปรตีน มอคค่า\n-โปรตีน เพียวมัทฉะ\n-คอลลาเจน อเมริกาโน่\n-คอลลาเจน บิวตี้รีเฟรช ค่าาา";
+    const flavorText = "ขอแนะนำเมนูยอดฮิตจากทางร้านค่ะ\n-กลูแคนสกาย\n-สตอเบอร์รี่ โยเกิร์ต\n-บลูเบอร์รี่ โยเกิร์ต\n-ดับเบิ้ล ช็อกโกแลต\n-โปรตีน มอคค่า\n-โปรตีน เพียวมัทฉะ\n-โปรตีน วนิลา\n-โปรตีน ชาไทย\n-โปรตีน ชาเขียว\n-โปรตีน สตอเบอร์รี่\n-คอลลาเจน อเมริกาโน่\n-คอลลาเจน บิวตี้รีเฟรช ค่าาา";
     await callSendAPI(sender_psid, { text: flavorText }, page_id);
     return;
   }
 
-  // 7. ข้อความอื่นๆ ส่งให้ Gemini AI ประมวลผล
+  // 8. ข้อความอื่นๆ ส่งให้ Gemini AI ประมวลผล
   const aiReply = await getAIReply(received_message.text);
   await callSendAPI(sender_psid, { text: aiReply }, page_id);
 }
@@ -331,17 +341,15 @@ async function sendPaymentInfo(sender_psid, page_id) {
   const payment = PAYMENT_DETAILS[page_id] || Object.values(PAYMENT_DETAILS)[0];
 
   if (payment) {
-    // 1. ส่งข้อความแจ้งเลขบัญชีและชื่อบัญชี
     const textMsg = `รายละเอียดการชำระเงินค่ะ ✨\n\n📌 ธนาคาร: ${payment.bankName}\n📌 ชื่อบัญชี: ${payment.accountName}\n📌 เลขที่บัญชี: ${payment.accountNumber}\n\nโอนเงินแล้วแจ้งสลิปในแชทนี้ได้เลยนะคะ ❤️`;
     await callSendAPI(sender_psid, { text: textMsg }, page_id);
 
-    // 2. ส่งรูปภาพ QR Code (ใช้ URL ตรงจาก payment.qrImage)
     if (payment.qrImage) {
       const imagePayload = {
         attachment: {
           type: "image",
           payload: {
-            url: payment.qrImage, // ✅ ส่ง URL รูปตรงไปให้ Facebook ได้เลย
+            url: payment.qrImage,
             is_reusable: true
           }
         }

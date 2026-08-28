@@ -253,22 +253,19 @@ async function handleMessage(sender_psid, received_message, page_id) {
   const text = rawText.trim().toLowerCase();
   const safeText = escapeHtml(rawText);
 
-  // 🔴 1. ดักสลิป/รูปภาพ/แจ้งโอน (แจ้งเตือนเฉพาะ Telegram - ไม่ส่งข้อความมั่วหาลูกค้าเด็ดขาด)
-  if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว') || text.includes('ชำระแล้ว')) {
+ // 🔴 1. ดักสลิป/รูปภาพ (ส่ง Telegram อย่างเดียว - ไม่มี callSendAPI ตอบกลับลูกค้า)
+  if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
 
-    const alertMsg = `🚨 <b>[แจ้งเตือน มีรูปภาพ/สลิป/แจ้งโอนเข้าใหม่]</b>\n` +
+    const alertMsg = `🚨 <b>[แจ้งเตือน มีรูปภาพ/สลิปเข้าใหม่]</b>\n` +
       `🏪 <b>เพจ:</b> ${pageName}\n` +
       `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
       `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/ไฟล์แนบ'}\n\n` +
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
-    // ส่งแจ้งเตือนให้แอดมินใน Telegram ตรวจสอบ
     await notifyAdmin(alertMsg, page_id);
-    
-    // ❌ ลบ callSendAPI "รับยอดเรียบร้อยค่ะ" ออกเรียบร้อยแล้ว
-    // ❌ ลบ return ออก เพื่อให้ AI เอาภาพ/ข้อความไปประมวลผลตอบลูกค้าตามจริง
+    // 🛑 บรรทัดนี้ไม่มี callSendAPI แล้ว
   }
 
   // 🟢 2. ดักจับการนัดหมายหน้าร้าน (แจ้งเตือน Telegram)

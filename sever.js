@@ -274,15 +274,9 @@ async function handleMessage(sender_psid, received_message, page_id) {
   const isAppointment = appointmentKeywords.some(kw => text.includes(kw));
 
   if (isAppointment) {
-    const replyText = "รับทราบค่ะ ยืนยันนัดหมายเวลาเข้ามารับที่ร้านเรียบร้อยนะคะ 😊 ทางร้านเปิดทำการเวลา 08:00 - 18:00 น. แล้วแวะมาพบกันที่ Healthy Cafe นะคะ ยินดีต้อนรับค่า ✨";
-    
-    // ส่งข้อความตอบกลับลูกค้าใน Messenger
-    await callSendAPI(sender_psid, { text: replyText }, page_id);
-
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
 
-    // ส่งแจ้งเตือนเข้านัดหมาย Telegram
     const alertMsg = `📅 <b>[แจ้งเตือนนัดหมายหน้าร้านใหม่!]</b>\n` +
       `🏪 <b>เพจ:</b> ${pageName}\n` +
       `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
@@ -290,14 +284,6 @@ async function handleMessage(sender_psid, received_message, page_id) {
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
     await notifyAdmin(alertMsg, page_id);
-    return;
-  }
-}
-  
-  // 2. ดักถามโอนเงิน/เลขบัญชี/ชำระเงิน -> ส่งข้อความ + รูป QR Code
-  if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('ชำระเงิน') || text.includes('จ่ายเงิน')) {
-    await sendPaymentInfo(sender_psid, page_id);
-    return;
   }
 
   // 3. ดักกรณีลูกค้าแจ้งมารับหน้าร้าน

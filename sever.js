@@ -258,14 +258,38 @@ async function handleMessage(sender_psid, received_message, page_id) {
     const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
 
     const alertMsg = `🚨 <b>[แจ้งเตือนยอดโอน/สลิปใหม่]</b>\n` +
-                     `🏪 <b>เพจ:</b> ${pageName}\n` +
-                     `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
-                     `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
-                     `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
-                     
+      `🏪 <b>เพจ:</b> ${pageName}\n` +
+      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
+      `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
+      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
+
     await notifyAdmin(alertMsg, page_id);
     return;
   }
+
+  // -----------------------------------------------------------
+  // 🟢 2. ดักจับการนัดหมายหน้าร้าน (วางต่อตรงนี้)
+  // -----------------------------------------------------------
+  if (text.includes('นัด') || text.includes('รับที่ร้าน') || text.includes('เข้ามารับ')) {
+    const replyText = "รับทราบค่ะคุณลูกค้า ยืนยันนัดหมายเข้ามารับที่ร้านเรียบร้อยนะคะ 😊 ทางร้านเปิดทำการเวลา 08:00 - 18:00 น. แล้วแวะมาพบกันที่ Healthy Cafe นะคะ ยินดีต้อนรับค่า ✨";
+    
+    // ส่งข้อความตอบกลับลูกค้า
+    await callSendAPI(sender_psid, { text: replyText }, page_id);
+
+    const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
+    const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
+
+    // ส่งแจ้งเตือนเข้านัดหมาย Telegram
+    const alertMsg = `📅 <b>[แจ้งเตือนนัดหมายหน้าร้านใหม่!]</b>\n` +
+      `🏪 <b>เพจ:</b> ${pageName}\n` +
+      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
+      `💬 <b>ข้อความลูกค้า:</b> ${safeText}\n\n` +
+      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
+
+    await notifyAdmin(alertMsg, page_id);
+    return;
+  }
+}
   
   // 2. ดักถามโอนเงิน/เลขบัญชี/ชำระเงิน -> ส่งข้อความ + รูป QR Code
   if (text.includes('โอน') || text.includes('เลขบัญชี') || text.includes('ชำระเงิน') || text.includes('จ่ายเงิน')) {

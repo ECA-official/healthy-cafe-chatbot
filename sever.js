@@ -285,26 +285,25 @@ async function handleMessage(sender_psid, received_message, page_id) {
       `💬 <b>ข้อความลูกค้า:</b> ${safeText}\n\n` +
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
-    await notifyAdmin(alertMsg, page_id);
-  }
+await notifyAdmin(alertMsg, page_id);
+  // (ลบปีกกา } บรรทัด 292 ออกแล้ว)
 
-  // ... (โค้ด AI ประมวลผลข้อความตัวหนังสือด้านล่าง) ...
-}
   // 3. ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
   if (text.includes('หน้าร้าน') || text.includes('มารับเอง') || text.includes('รับหน้าร้าน') || text.includes('เข้ามารับ')) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/all?asset_id=${page_id}`;
 
     const alertMsg = `📍 <b>[แจ้งเตือนลูกค้านัดรับหน้าร้าน]</b>\n` +
-                     `🏪 <b>เพจ:</b> ${pageName}\n` +
-                     `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
-                     `💬 <b>ข้อความ:</b> "${safeText}"\n\n` +
-                     `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้าบน Facebook</a>`;
-                     
+      `🏪 <b>เพจ:</b> ${pageName}\n` +
+      `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
+      `💬 <b>ข้อความ:</b> "${safeText}"\n\n` +
+      `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้าบน Facebook</a>`;
+
     await notifyAdmin(alertMsg, page_id);
     return;
   }
 
+} // 👈 ย้ายปีกกาปิดฟังก์ชันมาไว้ท้ายสุดตรงนี้ครับ
   // 4. ดักกรณีลูกค้าพิมพ์ "ไม่รับสิทธิ์"
   if (text.includes('ไม่รับสิทธิ์')) {
     await callSendAPI(sender_psid, { text: "รับทราบค่ะคุณลูกค้า ✨ เดี๋ยวแอดมินพาเข้าสู่ขั้นตอนการชำระเงินและเตรียมจัดส่งให้นะคะ รอสักครู่ค่ะ" }, page_id);

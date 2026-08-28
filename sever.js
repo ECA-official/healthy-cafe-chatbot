@@ -246,37 +246,37 @@ function escapeHtml(text) {
 }
 
 async function handleMessage(sender_psid, received_message, page_id) {
+  // 🛑 0. กันข้อความสะท้อน/ตอบซ้ำ
+  if (received_message.is_echo) return;
+
   const rawText = received_message.text || '';
   const text = rawText.trim().toLowerCase();
   const safeText = escapeHtml(rawText);
 
-  // 1. ดักสลิป/รูปภาพ/แจ้งโอน
-  if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว')) {
-    await callSendAPI(sender_psid, { text: "รับยอดเรียบร้อยค่ะ ขอบคุณมากนะคะ ✨" }, page_id);
-
+  // 🔴 1. ดักสลิป/รูปภาพ/แจ้งโอน (แจ้งเตือนเฉพาะ Telegram - ไม่ส่งข้อความมั่วหาลูกค้าเด็ดขาด)
+  if (received_message.attachments || text.includes('สลิป') || text.includes('โอนแล้ว') || text.includes('ชำระแล้ว')) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
 
-    const alertMsg = `🚨 <b>[แจ้งเตือนยอดโอน/สลิปใหม่]</b>\n` +
+    const alertMsg = `🚨 <b>[แจ้งเตือน มีรูปภาพ/สลิป/แจ้งโอนเข้าใหม่]</b>\n` +
       `🏪 <b>เพจ:</b> ${pageName}\n` +
       `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
-      `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/สลิปโอนเงิน'}\n\n` +
+      `💬 <b>ข้อความ:</b> ${safeText || 'ส่งรูปภาพ/ไฟล์แนบ'}\n\n` +
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
+    // ส่งแจ้งเตือนให้แอดมินใน Telegram ตรวจสอบ
     await notifyAdmin(alertMsg, page_id);
-    return;
+    
+    // ❌ ลบ callSendAPI "รับยอดเรียบร้อยค่ะ" ออกเรียบร้อยแล้ว
+    // ❌ ลบ return ออก เพื่อให้ AI เอาภาพ/ข้อความไปประมวลผลตอบลูกค้าตามจริง
   }
 
-  // -----------------------------------------------------------
-  // 🟢 2. ดักจับการนัดหมายหน้าร้าน (แบบครอบคลุมเวลาและวัน)
-  // -----------------------------------------------------------
-  // เพิ่มคีย์เวิร์ด 'ไปรับ', 'พรุ่งนี้', 'วันพุธ' ฯลฯ
+  // 🟢 2. ดักจับการนัดหมายหน้าร้าน (แจ้งเตือน Telegram)
   const appointmentKeywords = [
     'นัด', 'เข้าไป', 'ไปรับ', 'รับที่ร้าน', 'เข้ามารับ', 'หน้าร้าน', 'กี่โมง', 
     'พรุ่งนี้', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัส', 'วันศุกร์', 'วันเสาร์', 'วันอาทิตย์'
   ];
   
-  // เช็กว่ามีคีย์เวิร์ดด้านบน หรือ มีการพิมพ์ตัวเลขเวลา (เช่น 17.30, 13:00)
   const isAppointment = appointmentKeywords.some(kw => text.includes(kw)) || /\d{1,2}[:.]\d{2}/.test(text);
 
   if (isAppointment) {
@@ -289,12 +289,11 @@ async function handleMessage(sender_psid, received_message, page_id) {
       `💬 <b>ข้อความลูกค้า:</b> ${safeText}\n\n` +
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
-    // ยิงเข้า Telegram
     await notifyAdmin(alertMsg, page_id);
-    
-    // ❌ ไม่ต้องมี return; ตรงนี้นะครับ เพื่อปล่อยให้ AI ข้างล่างทำงานตอบลูกค้าต่อได้เลย
   }
 
+  // ... (โค้ด AI / การตอบกลับตามปกติของคุณด้านล่าง) ...
+}
   // 3. ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
   if (text.includes('หน้าร้าน') || text.includes('มารับเอง') || text.includes('รับหน้าร้าน') || text.includes('เข้ามารับ')) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;

@@ -267,23 +267,32 @@ async function handleMessage(sender_psid, received_message, page_id) {
     return;
   }
 
-  // ----------------------------------------------------------
   // -----------------------------------------------------------
- // 🟢 2. ดักจับการนัดหมายหน้าร้าน (ปรับคีย์เวิร์ดให้ครอบคลุมขึ้น)
-  const appointmentKeywords = ['นัด', 'เข้าไป', 'รับที่ร้าน', 'เข้ามารับ', 'หน้าร้าน', 'กี่โมง'];
-  const isAppointment = appointmentKeywords.some(kw => text.includes(kw));
+  // 🟢 2. ดักจับการนัดหมายหน้าร้าน (แบบครอบคลุมเวลาและวัน)
+  // -----------------------------------------------------------
+  // เพิ่มคีย์เวิร์ด 'ไปรับ', 'พรุ่งนี้', 'วันพุธ' ฯลฯ
+  const appointmentKeywords = [
+    'นัด', 'เข้าไป', 'ไปรับ', 'รับที่ร้าน', 'เข้ามารับ', 'หน้าร้าน', 'กี่โมง', 
+    'พรุ่งนี้', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัส', 'วันศุกร์', 'วันเสาร์', 'วันอาทิตย์'
+  ];
+  
+  // เช็กว่ามีคีย์เวิร์ดด้านบน หรือ มีการพิมพ์ตัวเลขเวลา (เช่น 17.30, 13:00)
+  const isAppointment = appointmentKeywords.some(kw => text.includes(kw)) || /\d{1,2}[:.]\d{2}/.test(text);
 
   if (isAppointment) {
     const pageName = PAGE_NAMES[page_id] || `เพจ ID: ${page_id}`;
     const chatLink = `https://business.facebook.com/latest/inbox/messenger?asset_id=${page_id}&selected_item_id=${sender_psid}`;
 
-    const alertMsg = `📅 <b>[แจ้งเตือนนัดหมายหน้าร้านใหม่!]</b>\n` +
+    const alertMsg = `📅 <b>[แจ้งเตือนลูกค้านัดหมายหน้าร้าน!]</b>\n` +
       `🏪 <b>เพจ:</b> ${pageName}\n` +
       `👤 <b>ลูกค้า PSID:</b> <code>${sender_psid}</code>\n` +
       `💬 <b>ข้อความลูกค้า:</b> ${safeText}\n\n` +
       `👉 <a href="${chatLink}">กดที่นี่เพื่อเปิดแชตลูกค้า</a>`;
 
+    // ยิงเข้า Telegram
     await notifyAdmin(alertMsg, page_id);
+    
+    // ❌ ไม่ต้องมี return; ตรงนี้นะครับ เพื่อปล่อยให้ AI ข้างล่างทำงานตอบลูกค้าต่อได้เลย
   }
 
   // 3. ดักกรณีลูกค้าแจ้งมารับหน้าร้าน
